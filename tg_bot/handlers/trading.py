@@ -45,6 +45,7 @@ async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         collector = CryptoDataCollector()
         try:
             df = None
+            ticker_24h = None
 
             # Use selected exchange
             if exchange_pref == 'bybit':
@@ -58,16 +59,30 @@ async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 else:  # auto
                     df = collector.get_binance_klines_auto(symbol, "1m", limit=1)
 
+                # Get 24h ticker data for accurate volume
+                ticker_24h = collector.get_binance_24h_ticker(symbol)
+
             if df is not None and len(df) > 0:
                 latest = df.iloc[-1]
 
-                price_data = {
-                    'price': latest['close'],
-                    'change_24h': ((latest['close'] - latest['open']) / latest['open']) * 100,
-                    'volume_24h': latest['volume'],
-                    'high_24h': latest['high'],
-                    'low_24h': latest['low'],
-                }
+                # Use 24h ticker data if available, otherwise fall back to kline data
+                if ticker_24h:
+                    price_data = {
+                        'price': ticker_24h['last_price'],
+                        'change_24h': ticker_24h['price_change_percent'],
+                        'volume_24h': ticker_24h['quote_volume'],  # Quote volume in USDT
+                        'high_24h': ticker_24h['high_price'],
+                        'low_24h': ticker_24h['low_price'],
+                    }
+                else:
+                    # Fallback to kline data
+                    price_data = {
+                        'price': latest['close'],
+                        'change_24h': ((latest['close'] - latest['open']) / latest['open']) * 100,
+                        'volume_24h': latest['volume'],
+                        'high_24h': latest['high'],
+                        'low_24h': latest['low'],
+                    }
 
                 # Delete loading message and send price info
                 await loading_msg.delete()

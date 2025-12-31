@@ -221,7 +221,69 @@ class CryptoDataCollector:
         except Exception as e:
             logger.error(f"Unexpected error fetching Binance data: {e}")
             return None
-    
+
+    def get_binance_24h_ticker(self, symbol: str) -> Optional[Dict]:
+        """
+        Get 24-hour ticker data from Binance
+
+        Parameters:
+        -----------
+        symbol : str
+            Trading pair (e.g., "BTCUSDT", "ETHUSDT")
+
+        Returns:
+        --------
+        Dict with 24h statistics including volume, price change, etc.
+        """
+        # Apply rate limiting
+        self._rate_limit(Exchange.BINANCE)
+
+        # Prepare request
+        url = f"{Exchange.BINANCE.value.base_url}/api/v3/ticker/24hr"
+        params = {"symbol": symbol.upper()}
+
+        try:
+            logger.info(f"Fetching Binance 24h ticker: {symbol}")
+            response = requests.get(url, params=params, timeout=15)
+            response.raise_for_status()
+
+            data = response.json()
+
+            # Parse relevant data
+            ticker_data = {
+                'symbol': data.get('symbol'),
+                'price_change': float(data.get('priceChange', 0)),
+                'price_change_percent': float(data.get('priceChangePercent', 0)),
+                'weighted_avg_price': float(data.get('weightedAvgPrice', 0)),
+                'prev_close_price': float(data.get('prevClosePrice', 0)),
+                'last_price': float(data.get('lastPrice', 0)),
+                'last_qty': float(data.get('lastQty', 0)),
+                'bid_price': float(data.get('bidPrice', 0)),
+                'bid_qty': float(data.get('bidQty', 0)),
+                'ask_price': float(data.get('askPrice', 0)),
+                'ask_qty': float(data.get('askQty', 0)),
+                'open_price': float(data.get('openPrice', 0)),
+                'high_price': float(data.get('highPrice', 0)),
+                'low_price': float(data.get('lowPrice', 0)),
+                'volume': float(data.get('volume', 0)),
+                'quote_volume': float(data.get('quoteVolume', 0)),
+                'open_time': int(data.get('openTime', 0)),
+                'close_time': int(data.get('closeTime', 0)),
+                'first_id': int(data.get('firstId', 0)),
+                'last_id': int(data.get('lastId', 0)),
+                'trades': int(data.get('count', 0))
+            }
+
+            logger.debug(f"Successfully fetched 24h ticker for {symbol}")
+            return ticker_data
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error fetching Binance 24h ticker: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error fetching Binance 24h ticker: {e}")
+            return None
+
     # ============ BYBIT METHODS ============
     def get_bybit_klines(self, symbol: str = "BTCUSDT",
                         interval: str = "1h",

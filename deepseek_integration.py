@@ -50,6 +50,7 @@ class TradingPlan:
     symbol: str
     timeframe: str
     generated_at: datetime
+    current_price: float  # Current market price saat plan dibuat
     trend: str  # BULLISH, BEARISH, SIDEWAYS
     overall_signal: TradingSignal
 
@@ -253,19 +254,85 @@ class TradingPlanGenerator:
         }}
 
         INSTRUKSI SPESIFIK:
-        1. Berikan 2-3 ENTRY POINT dengan weighting yang jelas
-        2. Berikan 3 TAKE PROFIT LEVEL dengan Risk/Reward ratio
-        3. Tentukan STOP LOSS yang jelas dengan alasan
-        4. Hitung Risk/Reward Ratio minimal 1:1.5
-        5. Berikan probability of success berdasarkan data
-        6. Sertakan analisis kondisi pasar
-        7. Berikan catatan dan peringatan penting
+        1. Tentukan DIRECTION: LONG (BUY) atau SHORT (SELL) berdasarkan analisis teknikal
+        2. Jika signal = BUY/LONG:
+           - Entry levels harus DI BAWAH current price (buy saat dip)
+           - Take profit levels harus DI ATAS entry (jual saat profit)
+           - Stop loss harus DI BAWAH entry
+        3. Jika signal = SELL/SHORT:
+           - Entry levels harus DI ATAS current price (short saat mahal)
+           - Take profit levels harus DI BAWAH entry (buyback saat profit)
+           - Stop loss harus DI ATAS entry
+        4. Berikan 2-3 ENTRY POINT dengan weighting yang jelas
+        5. Berikan 3 TAKE PROFIT LEVEL dengan Risk/Reward ratio
+        6. Tentukan STOP LOSS yang jelas dengan alasan
+        7. Hitung Risk/Reward Ratio minimal 1:1.5
+        8. Berikan probability of success berdasarkan data
+        9. Sertakan analisis kondisi pasar
+        10. Berikan catatan dan peringatan penting
+
+        ⚠️ PENTING - DIRECTION & POSITION:
+        - Signal BUY = Long position (expecting price to go UP)
+          * Entry: Buy at lower prices
+          * TP: Sell at higher prices
+          * SL: Below entry
+
+        - Signal SELL = Short position (expecting price to go DOWN)
+          * Entry: Short/sell at higher prices
+          * TP: Buy back at lower prices
+          * SL: Above entry
 
         ⚠️ PENTING - PRECISION REQUIREMENT:
         - Gunakan minimal 4-6 angka di belakang koma untuk semua level harga
         - Contoh yang BENAR: 1.6425, 1.5987, 1.5532
         - Contoh yang SALAH: 1.64, 1.60, 1.55
         - Ini sangat penting untuk akurasi trading plan
+
+        CONTEMPLATE CONTOH TRADING PLAN:
+
+        📌 CONTOH 1: LONG POSITION (BUY Signal)
+        {{
+            "trend": "BULLISH",
+            "overall_signal": {{
+                "signal": "BUY",
+                "confidence": 0.85,
+                "reason": "Strong bounce dari support, RSI oversold"
+            }},
+            "entries": [
+                {{"level": 98000.5000, "weight": 0.5, "description": "Entry utama di support"}},
+                {{"level": 97500.2500, "weight": 0.3, "description": "Entry tambahan jika dip"}}
+            ],
+            "take_profits": [
+                {{"level": 99000.0000, "reward_ratio": 1.5, "description": "TP1 - Resistance minor"}},
+                {{"level": 100000.0000, "reward_ratio": 2.5, "description": "TP2 - Resistance utama"}}
+            ],
+            "stop_loss": {{
+                "level": 97000.0000,
+                "reason": "Di bawah support kunci"
+            }}
+        }}
+
+        📌 CONTOH 2: SHORT POSITION (SELL Signal)
+        {{
+            "trend": "BEARISH",
+            "overall_signal": {{
+                "signal": "SELL",
+                "confidence": 0.75,
+                "reason": "Rejection di resistance, RSI overbought, bearish divergence"
+            }},
+            "entries": [
+                {{"level": 99500.0000, "weight": 0.5, "description": "Short di resistance kuat"}},
+                {{"level": 100000.0000, "weight": 0.3, "description": "Short tambahan jika pump"}}
+            ],
+            "take_profits": [
+                {{"level": 98500.0000, "reward_ratio": 1.5, "description": "TP1 - Support minor"}},
+                {{"level": 97500.0000, "reward_ratio": 2.5, "description": "TP2 - Support utama"}}
+            ],
+            "stop_loss": {{
+                "level": 100500.0000,
+                "reason": "Di atas resistance, breakdown confirmation"
+            }}
+        }}
 
         Risk Profile: {request.risk_profile.upper()}
 
@@ -446,11 +513,15 @@ class TradingPlanGenerator:
             # Pilih entry dengan weight tertinggi
             primary_entry = max(entries, key=lambda x: x.weight).level
         
+        # Get current price from latest candle
+        current_price = float(df['close'].iloc[-1])
+
         # Create trading plan
         plan = TradingPlan(
             symbol=plan_data.get('symbol', request.symbol),
             timeframe=plan_data.get('timeframe', request.timeframe),
             generated_at=datetime.now(),
+            current_price=current_price,
             trend=plan_data.get('trend', 'SIDEWAYS'),
             overall_signal=signal,
             entries=entries,
@@ -491,6 +562,7 @@ class TradingPlanGenerator:
             symbol=request.symbol,
             timeframe=request.timeframe,
             generated_at=current_time,
+            current_price=0.0,  # Unknown since error occurred
             trend="UNKNOWN",
             overall_signal=signal,
             entries=[],

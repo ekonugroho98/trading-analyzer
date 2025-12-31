@@ -147,9 +147,13 @@ Contact @admin for support
                 'SIDEWAYS': TelegramFormatter.EMOJI['neutral'],
             }.get(plan.trend.upper(), TelegramFormatter.EMOJI['neutral'])
 
+            # Format current price
+            formatted_current_price = TelegramFormatter._format_price(plan.current_price)
+
             message = f"""{TelegramFormatter.EMOJI['robot']} *AI Trading Plan*
 {TelegramFormatter.EMOJI['chart']} *{plan.symbol}* - {plan.generated_at.strftime('%Y-%m-%d %H:%M')}
 
+*Current Price*: {formatted_current_price} {TelegramFormatter.EMOJI['money']}
 *Signal*: {plan.overall_signal.signal_type} {signal_emoji}
 *Confidence*: {plan.overall_signal.confidence:.1%}
 *Trend*: {plan.trend} {trend_emoji}
