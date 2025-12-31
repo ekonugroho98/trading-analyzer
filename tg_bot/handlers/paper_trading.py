@@ -58,15 +58,19 @@ async def portfolio_add_start(update: Update, context: ContextTypes.DEFAULT_TYPE
         "/portfolio_add SYMBOL TYPE ENTRY QTY [SL] [TP1,TP2,...]\n"
         "```\n\n"
         "**Parameter:**\n"
-        "• SYMBOL: Contoh BTCUSDT, ETHUSDT\n"
-        "• TYPE: LONG atau SHORT\n"
-        "• ENTRY: Harga entry (USDT)\n"
-        "• QTY: Jumlah/koin\n"
-        "• SL: Stop loss (opsional)\n"
-        "• TP: Take profit levels, pisahkan dengan koma (opsional)\n\n"
+        "• SYMBOL - Contoh: BTCUSDT, ETHUSDT\n"
+        "• TYPE - LONG (beli) atau SHORT (jual)\n"
+        "• ENTRY - Harga entry dalam USDT\n"
+        "• QTY - Jumlah koin (contoh: 0.001 BTC)\n"
+        "• SL - Stop loss (opsional)\n"
+        "• TP - Take profit levels, pisahkan dengan koma (opsional)\n\n"
         "**Contoh:**\n"
         "/portfolio_add BTCUSDT LONG 98000 0.001 97000 99000,100000\n"
-        "/portfolio_add ETHUSDT SHORT 3500 0.5 3600",
+        "/portfolio_add ETHUSDT SHORT 3500 0.5 3600\n\n"
+        "📌 *Penjelasan:*\n"
+        "- LONG = Profit jika harga NAIK\n"
+        "- SHORT = Profit jika harga TURUN\n"
+        "- QTY = Quantity/jumlah koin",
         parse_mode='Markdown'
     )
 
@@ -335,23 +339,40 @@ async def portfolio_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • `/portfolio_list` - Lihat semua posisi terbuka
 • `/portfolio_close ID PRICE` - Tutup posisi
 
-**Format Commands:**
+**Format Command:**
 
-**Buka Posisi Baru:```
+📝 *Buka Posisi Baru*
+```
 /portfolio_add SYMBOL TYPE ENTRY QTY [SL] [TPs]
 ```
 
-**Contoh:```
+**Parameter:**
+• SYMBOL - Contoh: BTCUSDT, ETHUSDT
+• TYPE - LONG (beli) atau SHORT (jual)
+• ENTRY - Harga entry (dalam USDT)
+• QTY - Jumlah koin (contoh: 0.001 BTC)
+• SL - Stop loss (opsional)
+• TPs - Take profit levels, pisahkan dengan koma (opsional)
+
+**Contoh:**
+```
 /portfolio_add BTCUSDT LONG 98000 0.001 97000 99000,100000
 /portfolio_add ETHUSDT SHORT 3500 0.5 3600
 ```
 
-**Tutup Posisi:```
+📌 *Penjelasan:*
+- LONG = Profit jika harga NAIK
+- SHORT = Profit jika harga TURUN
+- QTY = Quantity/jumlah koin yang dibeli
+- Leverage = 1x (non-leverage)
+
+**Tutup Posisi:**
+```
 /portfolio_close POSITION_ID CLOSE_PRICE
 ```
 
-**Paper Trading Mode:**
-Semua transaksi adalah simulasi tanpa uang sungguhan.
+⚠️ *Paper Trading Mode:*
+Semua transaksi adalah SIMULASI tanpa uang sungguhan.
 Gunakan untuk testing strategi trading Anda.
 """
 
