@@ -15,6 +15,7 @@ from tg_bot.database import db
 from tg_bot import handlers
 from tg_bot.signal_worker import get_signal_worker
 from tg_bot.alert_worker import get_alert_worker
+from tg_bot.paper_trading import PaperTradingManager
 
 logger = logging.getLogger(__name__)
 
@@ -67,14 +68,33 @@ class TelegramTradingBot:
         app.add_handler(CommandHandler("closeposition", portfolio_handler.close_position))
         app.add_handler(CommandHandler("deleteposition", portfolio_handler.delete_position))
 
+        # Paper trading commands (NEW)
+        from tg_bot.handlers.paper_trading import (
+            portfolio_start, portfolio_add, portfolio_close,
+            portfolio_list, portfolio_help,
+            portfolio_confirm_callback, portfolio_cancel_callback
+        )
+        app.add_handler(CommandHandler("portfolio", portfolio_start))
+        app.add_handler(CommandHandler("portfolio_add", portfolio_add))
+        app.add_handler(CommandHandler("portfolio_close", portfolio_close))
+        app.add_handler(CommandHandler("portfolio_list", portfolio_list))
+        app.add_handler(CommandHandler("portfolio_help", portfolio_help))
+
         # Callback query handlers for inline keyboards
         app.add_handler(CallbackQueryHandler(portfolio_handler.add_from_plan_callback, pattern="^add_portfolio_"))
+        app.add_handler(CallbackQueryHandler(portfolio_confirm_callback, pattern="^portfolio_confirm_"))
+        app.add_handler(CallbackQueryHandler(portfolio_cancel_callback, pattern="^portfolio_cancel$"))
 
         logger.info("All handlers registered")
 
     async def post_init(self, application: Application) -> None:
         """Post-initialization callback"""
         logger.info("Bot application initialized")
+
+        # Initialize paper trading manager
+        paper_trading = PaperTradingManager(db)
+        application.bot_data['paper_trading'] = paper_trading
+        logger.info("Paper trading manager initialized")
 
         # Setup signal check scheduler
         self.setup_signal_scheduler()

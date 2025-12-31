@@ -345,3 +345,131 @@ Please try again or use /help for assistance.
     def loading_message(action: str) -> str:
         """Format loading/processing message"""
         return f"⏳ {action}. Please wait..."
+
+
+def format_portfolio_summary(summary: Dict) -> str:
+    """Format portfolio summary message"""
+    if summary['total_positions'] == 0:
+        return """📊 **Portfolio Kosong**
+
+Anda belum memiliki posisi terbuka.
+Gunakan /portfolio_add untuk membuka posisi baru.
+"""
+
+    message = f"""📊 **Portfolio Summary**
+
+📈 *Total Posisi*: {summary['total_positions']}
+💰 *Total Value*: ${summary['total_value']:,.2f}
+📉 *Total P&L*: ${summary['total_pnl']:,.2f}
+
+**Posisi Terbuka**:
+"""
+
+    for pos in summary['positions']:
+        pos_type_emoji = "🟢" if pos.position_type == "LONG" else "🔴"
+        message += f"\n{pos_type_emoji} *{pos.symbol}* - {pos.position_type}\n"
+        message += f"  Entry: ${pos.entry_price:,.4f}\n"
+        message += f"  Qty: {pos.quantity:.4f}\n"
+        message += f"  Value: ${pos.total_value:,.2f}\n"
+
+        if pos.stop_loss:
+            message += f"  SL: ${pos.stop_loss:,.4f}\n"
+
+        if pos.take_profits:
+            message += f"  TPs: "
+            tp_levels = [f"${tp['level']:,.2f}" for tp in pos.take_profits]
+            message += ", ".join(tp_levels) + "\n"
+
+        if pos.notes:
+            message += f"  📝 {pos.notes}\n"
+
+    return message
+
+
+def format_position_confirmation(position) -> str:
+    """Format position confirmation message"""
+    pos_type_emoji = "🟢" if position.position_type == "LONG" else "🔴"
+
+    message = f"""📝 **Konfirmasi Posisi Baru**
+
+{pos_type_emoji} *{position.symbol}* - {position.position_type}
+
+💰 *Entry*: ${position.entry_price:,.4f}
+📊 *Quantity*: {position.quantity:.4f}
+💵 *Total Value*: ${position.total_value:,.2f}
+"""
+
+    if position.stop_loss:
+        message += f"🛑 *Stop Loss*: ${position.stop_loss:,.4f}\n"
+
+    if position.take_profits:
+        message += f"🎯 *Take Profits*:\n"
+        for i, tp in enumerate(position.take_profits, 1):
+            pct = tp.get('percentage', 1.0) * 100
+            message += f"  TP{i}: ${tp['level']:,.2f} ({pct:.0f}%)\n"
+
+    if position.notes:
+        message += f"📝 *Catatan*: {position.notes}\n"
+
+    message += """
+⚠️ *Paper Trading Mode*
+Semua transaksi adalah SIMULASI tanpa uang sungguhan.
+
+Konfirmasi untuk membuka posisi?
+"""
+
+    return message
+
+
+def format_position_opened(position) -> str:
+    """Format position opened message"""
+    pos_type_emoji = "🟢" if position.position_type == "LONG" else "🔴"
+
+    message = f"""✅ **Posisi Dibuka**
+
+{pos_type_emoji} *{position.symbol}* - {position.position_type}
+ID: `{position.id}`
+
+💰 *Entry*: ${position.entry_price:,.4f}
+📊 *Quantity*: {position.quantity:.4f}
+💵 *Value*: ${position.total_value:,.2f}
+"""
+
+    if position.stop_loss:
+        message += f"🛑 *Stop Loss*: ${position.stop_loss:,.4f}\n"
+
+    if position.take_profits:
+        message += f"🎯 *Take Profits*: "
+        tp_levels = [f"${tp['level']:,.2f}" for tp in position.take_profits]
+        message += ", ".join(tp_levels) + "\n"
+
+    message += f"\n⏰ *Opened*: {position.opened_at.strftime('%Y-%m-%d %H:%M:%S')}\n"
+    message += "\nGunakan /portfolio_close ID PRICE untuk menutup posisi"
+
+    return message
+
+
+def format_positions_list(positions: List) -> str:
+    """Format list of positions"""
+    message = f"📊 **Daftar Posisi ({len(positions)})**\n\n"
+
+    for pos in positions:
+        pos_type_emoji = "🟢" if pos.position_type == "LONG" else "🔴"
+
+        message += f"*{pos.symbol}* - {pos.position_type} {pos_type_emoji}\n"
+        message += f"  ID: `{pos.id}`\n"
+        message += f"  Entry: ${pos.entry_price:,.4f} | Qty: {pos.quantity:.4f}\n"
+        message += f"  Value: ${pos.total_value:,.2f}\n"
+
+        if pos.stop_loss:
+            message += f"  SL: ${pos.stop_loss:,.4f}\n"
+
+        if pos.take_profits:
+            tp_str = ", ".join([f"${tp['level']:,.2f}" for tp in pos.take_profits])
+            message += f"  TPs: {tp_str}\n"
+
+        message += "\n"
+
+    message += "Gunakan /portfolio_close ID PRICE untuk menutup posisi"
+
+    return message
