@@ -47,6 +47,10 @@ data/*.pkl
 data/*.parquet
 !data/.gitkeep
 
+# Cache files
+data_cache/*.csv
+data_cache/*/*.csv
+
 # Config with sensitive data
 .env
 config.local.json
