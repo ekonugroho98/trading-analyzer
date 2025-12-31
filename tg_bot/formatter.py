@@ -108,8 +108,17 @@ Example: `/setalert BTCUSDT above 90000`
 /delalert [alert_id] - Delete alert
 /clearalerts - Clear all alerts
 
-*PORTFOLIO* (Coming Soon)
-/myportfolio - Show portfolio summary
+*PAPER TRADING* (Simulasi Tanpa Modal)
+/portfolio - View portfolio summary
+/portfolio_add - Add new paper trading position
+/portfolio_list - List all open positions
+/portfolio_close - Close position
+/portfolio_help - Show paper trading help
+
+*PORTFOLIO MANAGEMENT*
+/myportfolio - Show real portfolio summary
+/addposition - Add real position
+/closeposition - Close real position
 
 *Need more help?*
 Contact @admin for support
