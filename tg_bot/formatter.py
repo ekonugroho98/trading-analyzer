@@ -117,6 +117,19 @@ Contact @admin for support
 """
 
     @staticmethod
+    def _format_price(price: float) -> str:
+        """Format price with appropriate precision based on value"""
+        if price >= 1000:
+            # High-priced coins (BTC): show 2 decimals
+            return f"${price:,.2f}"
+        elif price >= 1:
+            # Medium-priced coins: show 4 decimals
+            return f"${price:,.4f}"
+        else:
+            # Low-priced coins (shitcoins): show 6-8 decimals
+            return f"${price:,.8f}".rstrip('0').rstrip('.')
+
+    @staticmethod
     def trading_plan(plan: Any) -> str:
         """Format trading plan notification"""
         try:
@@ -146,15 +159,18 @@ Contact @admin for support
 
             # Entry levels
             for i, entry in enumerate(plan.entries, 1):
-                message += f"{TelegramFormatter.EMOJI['money']} ${entry.level:,.2f} ({entry.weight:.0%})\n"
+                formatted_price = TelegramFormatter._format_price(entry.level)
+                message += f"{TelegramFormatter.EMOJI['money']} {formatted_price} ({entry.weight:.0%})\n"
 
             message += "\n*Take Profits*:\n"
             # Take profits
             for tp in plan.take_profits:
-                message += f"{TelegramFormatter.EMOJI['target']} ${tp.level:,.2f} (R:R {tp.reward_ratio:.1f}x)\n"
+                formatted_price = TelegramFormatter._format_price(tp.level)
+                message += f"{TelegramFormatter.EMOJI['target']} {formatted_price} (R:R {tp.reward_ratio:.1f}x)\n"
 
             # Stop loss
-            message += f"\n*Stop Loss*: ${plan.stop_loss:,.2f}"
+            formatted_sl = TelegramFormatter._format_price(plan.stop_loss)
+            message += f"\n*Stop Loss*: {formatted_sl}"
             message += f"\n*Risk/Reward*: {plan.risk_reward_ratio:.2f}"
 
             # Reason

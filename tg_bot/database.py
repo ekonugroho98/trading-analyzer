@@ -87,11 +87,51 @@ class TelegramDatabase:
             )
         """)
 
+        # Portfolio positions table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS portfolio_positions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id INTEGER,
+                symbol TEXT,
+                position_type TEXT,
+                entry_price REAL,
+                current_price REAL,
+                quantity REAL,
+                total_value REAL,
+                stop_loss REAL,
+                take_profit REAL,
+                notes TEXT,
+                status TEXT DEFAULT 'open',
+                opened_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                closed_at TIMESTAMP,
+                FOREIGN KEY (chat_id) REFERENCES users(chat_id)
+            )
+        """)
+
+        # Portfolio transactions table (for tracking history)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS portfolio_transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id INTEGER,
+                symbol TEXT,
+                transaction_type TEXT,
+                price REAL,
+                quantity REAL,
+                total_value REAL,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (chat_id) REFERENCES users(chat_id)
+            )
+        """)
+
         # Create indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_subscriptions_chat_id ON subscriptions(chat_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_alerts_chat_id ON alerts(chat_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_alerts_triggered ON alerts(triggered)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_preferences_chat_id ON user_preferences(chat_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_positions_chat_id ON portfolio_positions(chat_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_positions_status ON portfolio_positions(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_transactions_chat_id ON portfolio_transactions(chat_id)")
 
         conn.commit()
         conn.close()
@@ -463,6 +503,308 @@ class TelegramDatabase:
         except Exception as e:
             logger.error(f"Error setting user preference: {e}")
             return False
+
+    # ============ PORTFOLIO POSITIONS ============
+    def add_position(self, chat_id: int, symbol: str, position_type: str,
+                     entry_price: float, quantity: float, stop_loss: float = None,
+                     take_profit: float = None, notes: str = None) -> Optional[int]:
+        """Add new position to portfolio"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            total_value = entry_price * quantity
+
+            cursor.execute("""
+                INSERT INTO portfolio_positions
+                (chat_id, symbol, position_type, entry_price, current_price, quantity,
+                 total_value, stop_loss, take_profit, notes, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')
+            """, (chat_id, symbol.upper(), position_type.upper(), entry_price,
+                  entry_price, quantity, total_value, stop_loss, take_profit, notes))
+
+            conn.commit()
+            position_id = cursor.lastrowid
+            conn.close()
+
+            logger.info(f"Position added: {position_id} - {symbol} {position_type} @{entry_price}")
+            return position_id
+        except Exception as e:
+            logger.error(f"Error adding position: {e}")
+            return None
+
+    def get_user_positions(self, chat_id: int, status: str = 'open') -> List[Dict]:
+        """Get user positions"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            if status:
+                cursor.execute("""
+                    SELECT id, symbol, position_type, entry_price, current_price,
+                           quantity, total_value, stop_loss, take_profit, notes,
+                           opened_at, closed_at
+                    FROM portfolio_positions
+                    WHERE chat_id = ? AND status = ?
+                    ORDER BY opened_at DESC
+                """, (chat_id, status))
+            else:
+                cursor.execute("""
+                    SELECT id, symbol, position_type, entry_price, current_price,
+                           quantity, total_value, stop_loss, take_profit, notes,
+                           opened_at, closed_at
+                    FROM portfolio_positions
+                    WHERE chat_id = ?
+                    ORDER BY opened_at DESC
+                """, (chat_id,))
+
+            rows = cursor.fetchall()
+            conn.close()
+
+            positions = []
+            for row in rows:
+                positions.append({
+                    'id': row[0],
+                    'symbol': row[1],
+                    'position_type': row[2],
+                    'entry_price': row[3],
+                    'current_price': row[4],
+                    'quantity': row[5],
+                    'total_value': row[6],
+                    'stop_loss': row[7],
+                    'take_profit': row[8],
+                    'notes': row[9],
+                    'opened_at': row[10],
+                    'closed_at': row[11]
+                })
+
+            return positions
+        except Exception as e:
+            logger.error(f"Error getting positions: {e}")
+            return []
+
+    def get_position(self, position_id: int, chat_id: int = None) -> Optional[Dict]:
+        """Get specific position"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            if chat_id:
+                cursor.execute("""
+                    SELECT id, symbol, position_type, entry_price, current_price,
+                           quantity, total_value, stop_loss, take_profit, notes,
+                           opened_at, closed_at, status
+                    FROM portfolio_positions
+                    WHERE id = ? AND chat_id = ?
+                """, (position_id, chat_id))
+            else:
+                cursor.execute("""
+                    SELECT id, symbol, position_type, entry_price, current_price,
+                           quantity, total_value, stop_loss, take_profit, notes,
+                           opened_at, closed_at, status
+                    FROM portfolio_positions
+                    WHERE id = ?
+                """, (position_id,))
+
+            row = cursor.fetchone()
+            conn.close()
+
+            if row:
+                return {
+                    'id': row[0],
+                    'symbol': row[1],
+                    'position_type': row[2],
+                    'entry_price': row[3],
+                    'current_price': row[4],
+                    'quantity': row[5],
+                    'total_value': row[6],
+                    'stop_loss': row[7],
+                    'take_profit': row[8],
+                    'notes': row[9],
+                    'opened_at': row[10],
+                    'closed_at': row[11],
+                    'status': row[12]
+                }
+            return None
+        except Exception as e:
+            logger.error(f"Error getting position: {e}")
+            return None
+
+    def update_position_price(self, position_id: int, current_price: float) -> bool:
+        """Update current price of position"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # Get quantity first
+            cursor.execute("SELECT quantity FROM portfolio_positions WHERE id = ?", (position_id,))
+            row = cursor.fetchone()
+            if not row:
+                conn.close()
+                return False
+
+            quantity = row[0]
+            total_value = current_price * quantity
+
+            cursor.execute("""
+                UPDATE portfolio_positions
+                SET current_price = ?, total_value = ?
+                WHERE id = ?
+            """, (current_price, total_value, position_id))
+
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            logger.error(f"Error updating position price: {e}")
+            return False
+
+    def close_position(self, position_id: int, close_price: float = None,
+                      chat_id: int = None) -> bool:
+        """Close position"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            if close_price:
+                # Update current price and calculate final P/L
+                cursor.execute("""
+                    SELECT quantity FROM portfolio_positions
+                    WHERE id = ?
+                """, (position_id,))
+                row = cursor.fetchone()
+                if row:
+                    quantity = row[0]
+                    total_value = close_price * quantity
+                    cursor.execute("""
+                        UPDATE portfolio_positions
+                        SET current_price = ?, total_value = ?, status = 'closed',
+                            closed_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    """, (close_price, total_value, position_id))
+                else:
+                    cursor.execute("""
+                        UPDATE portfolio_positions
+                        SET status = 'closed', closed_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    """, (position_id,))
+            else:
+                cursor.execute("""
+                    UPDATE portfolio_positions
+                    SET status = 'closed', closed_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                """, (position_id,))
+
+            conn.commit()
+            conn.close()
+            logger.info(f"Position closed: {position_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Error closing position: {e}")
+            return False
+
+    def delete_position(self, position_id: int, chat_id: int = None) -> bool:
+        """Delete position permanently"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            if chat_id:
+                cursor.execute("DELETE FROM portfolio_positions WHERE id = ? AND chat_id = ?",
+                             (position_id, chat_id))
+            else:
+                cursor.execute("DELETE FROM portfolio_positions WHERE id = ?", (position_id,))
+
+            conn.commit()
+            conn.close()
+            logger.info(f"Position deleted: {position_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting position: {e}")
+            return False
+
+    def get_portfolio_summary(self, chat_id: int) -> Dict:
+        """Get portfolio summary stats"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # Get all open positions
+            cursor.execute("""
+                SELECT COUNT(*), SUM(total_value)
+                FROM portfolio_positions
+                WHERE chat_id = ? AND status = 'open'
+            """, (chat_id,))
+
+            row = cursor.fetchone()
+            total_positions = row[0] or 0
+            total_value = row[1] or 0
+
+            # Calculate P/L for all positions
+            cursor.execute("""
+                SELECT entry_price, current_price, quantity, position_type
+                FROM portfolio_positions
+                WHERE chat_id = ? AND status = 'open'
+            """, (chat_id,))
+
+            rows = cursor.fetchall()
+            total_pnl = 0.0
+            total_pnl_percent = 0.0
+
+            for row in rows:
+                entry_price, current_price, quantity, pos_type = row
+                if pos_type == 'LONG':
+                    pnl = (current_price - entry_price) * quantity
+                    pnl_percent = ((current_price - entry_price) / entry_price) * 100
+                else:  # SHORT
+                    pnl = (entry_price - current_price) * quantity
+                    pnl_percent = ((entry_price - current_price) / entry_price) * 100
+
+                total_pnl += pnl
+                total_pnl_percent += pnl_percent
+
+            conn.close()
+
+            return {
+                'total_positions': total_positions,
+                'total_value': total_value,
+                'total_pnl': total_pnl,
+                'total_pnl_percent': total_pnl_percent / total_positions if total_positions > 0 else 0
+            }
+        except Exception as e:
+            logger.error(f"Error getting portfolio summary: {e}")
+            return {
+                'total_positions': 0,
+                'total_value': 0,
+                'total_pnl': 0,
+                'total_pnl_percent': 0
+            }
+
+    def add_transaction(self, chat_id: int, symbol: str, transaction_type: str,
+                       price: float, quantity: float, notes: str = None) -> Optional[int]:
+        """Add transaction to history"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            total_value = price * quantity
+
+            cursor.execute("""
+                INSERT INTO portfolio_transactions
+                (chat_id, symbol, transaction_type, price, quantity, total_value, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (chat_id, symbol.upper(), transaction_type.upper(), price,
+                  quantity, total_value, notes))
+
+            conn.commit()
+            transaction_id = cursor.lastrowid
+            conn.close()
+
+            logger.info(f"Transaction added: {transaction_id} - {transaction_type} {symbol}")
+            return transaction_id
+        except Exception as e:
+            logger.error(f"Error adding transaction: {e}")
+            return None
 
 
 # Global database instance

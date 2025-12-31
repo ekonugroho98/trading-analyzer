@@ -153,20 +153,31 @@ class TradingPlanGenerator:
         rsi = self._calculate_rsi(df)
         macd, signal = self._calculate_macd(df)
         
+        # Determine precision based on price
+        if current_price >= 1000:
+            price_precision = 2
+            price_format = f"${current_price:.2f}"
+        elif current_price >= 1:
+            price_precision = 4
+            price_format = f"${current_price:.4f}"
+        else:
+            price_precision = 6
+            price_format = f"${current_price:.6f}"
+
         prompt = f"""
         Anda adalah TRADING PLAN SPECIALIST dengan spesialisasi cryptocurrency.
-        
+
         BUATKAN TRADING PLAN LENGKAP untuk {request.symbol} pada timeframe {request.timeframe}.
-        
+
         DATA TEKNIKAL SAAT INI:
-        - Current Price: ${current_price:.2f}
-        - 24h High: ${high_24h:.2f}
-        - 24h Low: ${low_24h:.2f}
-        - Support Levels: {', '.join([f'${s:.2f}' for s in support_levels[:3]])}
-        - Resistance Levels: {', '.join([f'${r:.2f}' for r in resistance_levels[:3]])}
+        - Current Price: {price_format}
+        - 24h High: ${high_24h:.{price_precision}f}
+        - 24h Low: ${low_24h:.{price_precision}f}
+        - Support Levels: {', '.join([f'${s:.{price_precision}f}' for s in support_levels[:3]])}
+        - Resistance Levels: {', '.join([f'${r:.{price_precision}f}' for r in resistance_levels[:3]])}
         - RSI (14): {rsi:.2f}
         - MACD: {macd:.4f}, Signal: {signal:.4f}
-        
+
         FORMAT OUTPUT YANG DIHARAPKAN (WAJIB DALAM JSON):
         {{
             "symbol": "{request.symbol}",
@@ -179,19 +190,19 @@ class TradingPlanGenerator:
             }},
             "entries": [
                 {{
-                    "level": 50000.50,
+                    "level": 50000.1234,
                     "weight": 0.4,
                     "risk_score": 2,
                     "description": "Entry pertama pada support kuat"
                 }},
                 {{
-                    "level": 49500.00,
+                    "level": 49500.5678,
                     "weight": 0.4,
                     "risk_score": 3,
                     "description": "Entry kedua jika retest support"
                 }},
                 {{
-                    "level": 49000.00,
+                    "level": 49000.9012,
                     "weight": 0.2,
                     "risk_score": 5,
                     "description": "Entry agresif jika breakdown"
@@ -199,33 +210,33 @@ class TradingPlanGenerator:
             ],
             "take_profits": [
                 {{
-                    "level": 51000.00,
+                    "level": 51000.3456,
                     "reward_ratio": 1.5,
                     "percentage_gain": 2.0,
                     "description": "TP1 - Resistance minor"
                 }},
                 {{
-                    "level": 52000.00,
+                    "level": 52000.7890,
                     "reward_ratio": 2.0,
                     "percentage_gain": 4.0,
                     "description": "TP2 - Resistance utama"
                 }},
                 {{
-                    "level": 53000.00,
+                    "level": 53000.1234,
                     "reward_ratio": 3.0,
                     "percentage_gain": 6.0,
                     "description": "TP3 - Target Fibonacci"
                 }}
             ],
             "stop_loss": {{
-                "level": 48500.00,
+                "level": 48500.0000,
                 "reason": "Di bawah support kunci"
             }},
             "position_size": 0.05,
             "risk_per_trade": 0.02,
             "max_drawdown": 0.1,
-            "support_levels": [50000.00, 49500.00, 49000.00],
-            "resistance_levels": [51000.00, 52000.00, 53000.00],
+            "support_levels": [50000.1234, 49500.5678, 49000.9012],
+            "resistance_levels": [51000.3456, 52000.7890, 53000.1234],
             "risk_reward_ratio": 2.5,
             "probability_of_success": 0.65,
             "expected_return": 0.04,
@@ -240,7 +251,7 @@ class TradingPlanGenerator:
                 "SL wajib dipasang"
             ]
         }}
-        
+
         INSTRUKSI SPESIFIK:
         1. Berikan 2-3 ENTRY POINT dengan weighting yang jelas
         2. Berikan 3 TAKE PROFIT LEVEL dengan Risk/Reward ratio
@@ -249,9 +260,15 @@ class TradingPlanGenerator:
         5. Berikan probability of success berdasarkan data
         6. Sertakan analisis kondisi pasar
         7. Berikan catatan dan peringatan penting
-        
+
+        ⚠️ PENTING - PRECISION REQUIREMENT:
+        - Gunakan minimal 4-6 angka di belakang koma untuk semua level harga
+        - Contoh yang BENAR: 1.6425, 1.5987, 1.5532
+        - Contoh yang SALAH: 1.64, 1.60, 1.55
+        - Ini sangat penting untuk akurasi trading plan
+
         Risk Profile: {request.risk_profile.upper()}
-        
+
         RESPOND HANYA DENGAN JSON, TANPA TEKS LAINNYA.
         """
         

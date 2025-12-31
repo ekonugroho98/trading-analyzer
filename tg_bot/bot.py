@@ -6,7 +6,7 @@ Main bot class with command registration
 import logging
 import asyncio
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
 from telegram.ext import filters
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -58,6 +58,17 @@ class TelegramTradingBot:
         app.add_handler(CommandHandler("ta", handlers.trading.ta_command))
         app.add_handler(CommandHandler("signals", handlers.trading.signals_command))
         app.add_handler(CommandHandler("trending", handlers.trading.trending_command))
+
+        # Portfolio commands
+        from tg_bot.handlers.portfolio import PortfolioHandler
+        portfolio_handler = PortfolioHandler()
+        app.add_handler(CommandHandler("myportfolio", portfolio_handler.my_portfolio))
+        app.add_handler(CommandHandler("addposition", portfolio_handler.add_position))
+        app.add_handler(CommandHandler("closeposition", portfolio_handler.close_position))
+        app.add_handler(CommandHandler("deleteposition", portfolio_handler.delete_position))
+
+        # Callback query handlers for inline keyboards
+        app.add_handler(CallbackQueryHandler(portfolio_handler.add_from_plan_callback, pattern="^add_portfolio_"))
 
         logger.info("All handlers registered")
 

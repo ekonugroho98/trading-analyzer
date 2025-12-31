@@ -5,7 +5,8 @@ Handle /plan, /price, /analyze commands
 
 import logging
 import asyncio
-from telegram import Update
+import json
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from tg_bot.database import db
@@ -156,10 +157,33 @@ async def plan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await loading_msg.delete()
 
             if plan:
-                # Send trading plan
+                # Store plan data in bot_data for callback handler to use
+                # Use message_id as key to store the plan temporarily (expires after 5 minutes)
+                if context.bot_data is None:
+                    context.bot_data = {}
+                if 'trading_plans' not in context.bot_data:
+                    context.bot_data['trading_plans'] = {}
+
+                # Store plan with timestamp
+                import time
+                plan_key = f"{update.effective_message.message_id}_{chat_id}"
+                context.bot_data['trading_plans'][plan_key] = {
+                    'plan': plan,
+                    'timestamp': time.time()
+                }
+
+                # Create inline keyboard with "Add to Portfolio" button
+                # Include message_id in callback data to retrieve stored plan
+                callback_data = f"add_portfolio_{plan.symbol}_{plan.trend}_{update.effective_message.message_id}"
+
+                keyboard = [[InlineKeyboardButton("➕ Add to Portfolio", callback_data=callback_data)]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+
+                # Send trading plan with inline keyboard
                 await update.message.reply_text(
                     TelegramFormatter.trading_plan(plan),
-                    parse_mode='Markdown'
+                    parse_mode='Markdown',
+                    reply_markup=reply_markup
                 )
             else:
                 await update.message.reply_text(
