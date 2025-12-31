@@ -124,6 +124,19 @@ class TelegramDatabase:
             )
         """)
 
+        # Position take profits table (for multiple TPs)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS position_take_profits (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                position_id INTEGER,
+                level REAL,
+                percentage REAL,
+                status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (position_id) REFERENCES portfolio_positions(id) ON DELETE CASCADE
+            )
+        """)
+
         # Create indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_subscriptions_chat_id ON subscriptions(chat_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_alerts_chat_id ON alerts(chat_id)")
