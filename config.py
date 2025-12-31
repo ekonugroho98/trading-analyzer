@@ -73,9 +73,9 @@ class Config:
 
         # Set up TELEGRAM namespace
         self.TELEGRAM = type('TelegramNamespace', (), {
-            'bot_token': os.getenv("TELEGRAM_BOT_TOKEN", "8510299481:AAGN6iEEqPyu6GrrBT_7eGn903eMWgLXe6k"),
+            'bot_token': os.getenv("TELEGRAM_BOT_TOKEN", ""),
             'admin_chat_ids': [
-                int(cid) for cid in os.getenv("TELEGRAM_ADMIN_CHAT_IDS", "788501152").split(",")
+                int(cid) for cid in os.getenv("TELEGRAM_ADMIN_CHAT_IDS", "").split(",")
                 if cid.strip()
             ],
             'max_requests_per_minute': int(os.getenv("TELEGRAM_MAX_REQUESTS_PER_MINUTE", "20")),
@@ -88,7 +88,7 @@ class Config:
 
         # Set up DEEPSEEK namespace
         self.DEEPSEEK = type('DeepSeekNamespace', (), {
-            'api_key': os.getenv("DEEPSEEK_API_KEY", "sk-f0a38868c27748f1b782fab1db177d0f"),
+            'api_key': os.getenv("DEEPSEEK_API_KEY", ""),
             'base_url': "https://api.deepseek.com/v1",
             'model': "deepseek-chat",
             'max_tokens': 4000,
