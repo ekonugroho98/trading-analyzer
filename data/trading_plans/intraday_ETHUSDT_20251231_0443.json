@@ -1,0 +1,34 @@
+{
+  "symbol": "ETHUSDT",
+  "timeframe": "1h",
+  "generated_at": "2025-12-31T04:43:05.800461",
+  "trend": "UNKNOWN",
+  "overall_signal": {
+    "signal": "HOLD",
+    "confidence": 0.0,
+    "reason": "Error: Insufficient data for ETHUSDT",
+    "timestamp": "2025-12-31T04:43:05.800461"
+  },
+  "entries": [],
+  "take_profits": [],
+  "stop_loss": {
+    "level": 0.0,
+    "reason": "N/A"
+  },
+  "position_size": 0.0,
+  "risk_per_trade": 0.0,
+  "max_drawdown": 0.0,
+  "support_levels": [],
+  "resistance_levels": [],
+  "risk_reward_ratio": 0.0,
+  "probability_of_success": 0.0,
+  "expected_return": 0.0,
+  "market_conditions": "Analysis failed",
+  "notes": [
+    "Error occurred: Insufficient data for ETHUSDT"
+  ],
+  "warnings": [
+    "Do not trade based on this plan"
+  ],
+  "raw_analysis": ""
+}

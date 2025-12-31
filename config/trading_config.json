@@ -1,0 +1,197 @@
+{
+    "version": "1.0.0",
+    "last_updated": "2024-12-30T12:00:00Z",
+    
+    "trading": {
+      "default_symbols": ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT"],
+      "high_priority_symbols": ["BTCUSDT", "ETHUSDT"],
+      
+      "timeframes": {
+        "daily_analysis": "4h",
+        "intraday_analysis": "1h",
+        "swing_analysis": "1d",
+        "scalp_analysis": "15m"
+      },
+      
+      "risk_management": {
+        "default_risk_per_trade": 0.02,
+        "max_daily_loss": 0.05,
+        "max_portfolio_risk": 0.15,
+        "position_sizing_method": "fixed_fractional",
+        
+        "risk_profiles": {
+          "conservative": {
+            "risk_per_trade": 0.01,
+            "min_confidence": 0.75,
+            "min_risk_reward": 2.0
+          },
+          "moderate": {
+            "risk_per_trade": 0.02,
+            "min_confidence": 0.65,
+            "min_risk_reward": 1.5
+          },
+          "aggressive": {
+            "risk_per_trade": 0.03,
+            "min_confidence": 0.55,
+            "min_risk_reward": 1.2
+          }
+        }
+      },
+      
+      "trading_hours": {
+        "pre_market": "00:00-02:00",
+        "main_session": "02:00-22:00",
+        "post_market": "22:00-24:00",
+        "avoid_trading": ["14:30-15:00", "20:00-20:30"]  
+      },
+      
+      "indicators": {
+        "required": ["RSI", "MACD", "EMA_20", "EMA_50", "Volume"],
+        "optional": ["Bollinger_Bands", "ATR", "Stochastic", "Fibonacci"],
+        "rsi_overbought": 70,
+        "rsi_oversold": 30
+      }
+    },
+    
+    "analysis": {
+      "deepseek": {
+        "model": "deepseek-chat",
+        "max_tokens": 4000,
+        "temperature": 0.7,
+        "system_prompt": "expert_crypto_trader_v1"
+      },
+      
+      "minimum_data_points": {
+        "1m": 500,
+        "5m": 300,
+        "15m": 200,
+        "1h": 100,
+        "4h": 50,
+        "1d": 30,
+        "1w": 20
+      },
+      
+      "confidence_thresholds": {
+        "high_confidence": 0.75,
+        "medium_confidence": 0.60,
+        "low_confidence": 0.45,
+        "ignore_below": 0.40
+      }
+    },
+    
+    "scheduler": {
+      "daily_tasks": {
+        "generate_daily_plans": "00:00",
+        "generate_intraday_plans": ["04:00", "08:00", "12:00", "16:00", "20:00"],
+        "cleanup_old_data": "23:00",
+        "backup_database": "00:00"
+      },
+      
+      "retry_policy": {
+        "max_retries": 3,
+        "retry_delay": 60,
+        "exponential_backoff": true
+      }
+    },
+    
+    "alerts": {
+      "enabled": true,
+      "providers": ["console", "file"],
+      
+      "conditions": {
+        "high_confidence_signal": 0.75,
+        "price_alert_threshold": 0.05,
+        "volume_spike_threshold": 2.0,
+        "rsi_extreme": 80
+      },
+      
+      "slack": {
+        "enabled": false,
+        "webhook_url": "",
+        "channel": "#trading-alerts"
+      },
+      
+      "telegram": {
+        "enabled": false,
+        "bot_token": "",
+        "chat_id": ""
+      },
+      
+      "email": {
+        "enabled": false,
+        "smtp_server": "",
+        "sender_email": "",
+        "recipients": []
+      }
+    },
+    
+    "data_storage": {
+      "cache_duration": {
+        "ohlcv_data": "7d",
+        "trading_plans": "30d",
+        "reports": "90d",
+        "logs": "30d"
+      },
+      
+      "compression": {
+        "enabled": true,
+        "method": "gzip",
+        "min_size_kb": 100
+      },
+      
+      "backup": {
+        "enabled": true,
+        "schedule": "daily",
+        "keep_backups": 7
+      }
+    },
+    
+    "exchanges": {
+      "binance": {
+        "enabled": true,
+        "rate_limit": 0.1,
+        "max_requests_per_minute": 1200,
+        "timeout": 30
+      },
+      
+      "bybit": {
+        "enabled": true,
+        "rate_limit": 0.2,
+        "max_requests_per_minute": 300,
+        "timeout": 30
+      },
+      
+      "preferred_exchange": "binance",
+      "fallback_exchange": "bybit"
+    },
+    
+    "logging": {
+      "level": "INFO",
+      "file_rotation": {
+        "max_size_mb": 10,
+        "backup_count": 5
+      },
+      
+      "log_files": {
+        "trading_plans": "logs/trading_plans.log",
+        "data_collection": "logs/data_collection.log",
+        "errors": "logs/errors.log",
+        "performance": "logs/performance.log"
+      }
+    },
+    
+    "monitoring": {
+      "health_check_interval": 300,
+      "performance_metrics": true,
+      "memory_usage_threshold": 0.8,
+      "disk_usage_threshold": 0.9
+    },
+    
+    "api": {
+      "enabled": false,
+      "host": "localhost",
+      "port": 8000,
+      "auth_required": true,
+      "rate_limit": "100/hour"
+    }
+  }

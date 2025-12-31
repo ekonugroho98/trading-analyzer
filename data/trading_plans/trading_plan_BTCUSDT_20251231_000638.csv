@@ -1,0 +1,18 @@
+TRADING PLAN,BTCUSDT,4h
+Generated,2025-12-31 00:06:38.972015
+
+SIGNAL,CONFIDENCE,REASON
+BUY,70.0%,"Price above key support, RSI neutral-bullish, MACD positive"
+
+ENTRY POINTS,PRICE,WEIGHT,RISK SCORE,DESCRIPTION
+ENTRY 1,"$87,367.96",50%,2,Entry pada support terdekat dengan konfirmasi bounce
+ENTRY 2,"$86,658.74",30%,3,Entry pada support utama jika retest terjadi
+ENTRY 3,"$86,806.50",20%,4,Entry agresif pada 24h low dengan konfirmasi reversal
+
+TAKE PROFITS,TARGET,R/R,GAIN%,DESCRIPTION
+TP1,"$88,238.72",1:1.8,1.0%,TP1 - Resistance terdekat
+TP2,"$90,406.08",1:3.2,3.5%,TP2 - Target 24h high breakout
+TP3,"$92,000.00",1:5.0,5.3%,TP3 - Target ekstensi Fibonacci
+
+STOP LOSS,LEVEL,REASON
+SL,"$85,283.93",Di bawah support kunci terendah

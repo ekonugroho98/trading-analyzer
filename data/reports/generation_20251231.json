@@ -1,0 +1,9 @@
+{
+  "date": "2025-12-31T00:23:02.507820",
+  "timeframe": "4h",
+  "successful": 2,
+  "failed": [
+    "ETHUSDT"
+  ],
+  "failed_count": 1
+}

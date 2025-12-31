@@ -1,0 +1,18 @@
+TRADING PLAN,BNBUSDT,4h
+Generated,2025-12-31 00:23:00.495085
+
+SIGNAL,CONFIDENCE,REASON
+BUY,70.0%,"Price above key support, RSI neutral-bullish, MACD positive"
+
+ENTRY POINTS,PRICE,WEIGHT,RISK SCORE,DESCRIPTION
+ENTRY 1,$848.96,50%,2,Entry pada support terdekat dengan konfirmasi bounce
+ENTRY 2,$837.32,30%,3,Entry jika retest support utama dengan volume tinggi
+ENTRY 3,$832.02,20%,4,Entry agresif pada 24h low dengan konfirmasi reversal
+
+TAKE PROFITS,TARGET,R/R,GAIN%,DESCRIPTION
+TP1,$859.97,1:1.8,1.3%,TP1 - Resistance terdekat (current resistance)
+TP2,$872.12,1:2.5,2.7%,TP2 - 24h high breakout target
+TP3,$885.00,1:3.2,4.2%,TP3 - Target ekstensi Fibonacci 1.272
+
+STOP LOSS,LEVEL,REASON
+SL,$824.38,Di bawah support kunci terendah untuk konfirmasi bearish breakdown

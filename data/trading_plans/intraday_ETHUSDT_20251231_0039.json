@@ -1,0 +1,86 @@
+{
+  "symbol": "ETHUSDT",
+  "timeframe": "1h",
+  "generated_at": "2025-12-31T00:39:21.232580",
+  "trend": "BULLISH",
+  "overall_signal": {
+    "signal": "BUY",
+    "confidence": 0.7,
+    "reason": "Price above key supports, RSI bullish but approaching overbought, MACD positive",
+    "timestamp": "2025-12-31T00:39:21.232564"
+  },
+  "entries": [
+    {
+      "level": 2941.28,
+      "weight": 0.5,
+      "risk_score": 2,
+      "description": "Entry pada support terdekat dengan konfirmasi bounce"
+    },
+    {
+      "level": 2927.33,
+      "weight": 0.3,
+      "risk_score": 3,
+      "description": "Entry pada support kedua jika retest lebih dalam"
+    },
+    {
+      "level": 2914.44,
+      "weight": 0.2,
+      "risk_score": 4,
+      "description": "Entry agresif pada support kunci 24h low"
+    }
+  ],
+  "take_profits": [
+    {
+      "level": 2986.79,
+      "reward_ratio": 1.8,
+      "percentage_gain": 1.5,
+      "description": "TP1 - Resistance terdekat"
+    },
+    {
+      "level": 3009.8,
+      "reward_ratio": 2.5,
+      "percentage_gain": 2.5,
+      "description": "TP2 - 24h high breakout"
+    },
+    {
+      "level": 3050.0,
+      "reward_ratio": 3.5,
+      "percentage_gain": 4.0,
+      "description": "TP3 - Target ekstensi bullish"
+    }
+  ],
+  "stop_loss": {
+    "level": 2900.0,
+    "reason": "Di bawah semua support kunci dan 24h low"
+  },
+  "position_size": 0.08,
+  "risk_per_trade": 0.03,
+  "max_drawdown": 0.15,
+  "support_levels": [
+    2914.44,
+    2927.33,
+    2941.28
+  ],
+  "resistance_levels": [
+    2986.79,
+    3009.8,
+    3050.0
+  ],
+  "risk_reward_ratio": 2.3,
+  "probability_of_success": 0.6,
+  "expected_return": 0.035,
+  "market_conditions": "ETH berada dalam uptrend jangka pendek dengan harga di atas multiple supports. RSI 66.72 menunjukkan momentum bullish namun mendekati overbought. MACD positif (9.9257 > 6.7549) mengkonfirmasi momentum naik. Volume perlu dipantau untuk konfirmasi breakout resistance.",
+  "notes": [
+    "Monitor konfirmasi breakout di atas $2986.79",
+    "Perhatikan volume pada saat retest support",
+    "RSI mendekati 70 - waspadai potensi koreksi",
+    "MACD masih bullish divergence"
+  ],
+  "warnings": [
+    "Hindari entry jika RSI > 70 tanpa konfirmasi volume tinggi",
+    "Stop loss wajib dipasang karena volatilitas crypto",
+    "Risk profile aggressive - hanya untuk trader berpengalaman",
+    "Market crypto sangat volatile - siapkan mental untuk swing 3-5%"
+  ],
+  "raw_analysis": "{\n    \"symbol\": \"ETHUSDT\",\n    \"timeframe\": \"1h\",\n    \"trend\": \"BULLISH\",\n    \"overall_signal\": {\n        \"signal\": \"BUY\",\n        \"confidence\": 0.7,\n        \"reason\": \"Price above key supports, RSI bullish but approaching overbought, MACD positive\"\n    },\n    \"entries\": [\n        {\n            \"level\": 2941.28,\n            \"weight\": 0.5,\n            \"risk_score\": 2,\n            \"description\": \"Entry pada support terdekat dengan konfirmasi bounce\"\n        },\n        {\n            \"level\": 2927.33,\n            \"weight\": 0.3,\n            \"risk_score\": 3,\n            \"description\": \"Entry pada support kedua jika retest lebih dalam\"\n        },\n        {\n            \"level\": 2914.44,\n            \"weight\": 0.2,\n            \"risk_score\": 4,\n            \"description\": \"Entry agresif pada support kunci 24h low\"\n        }\n    ],\n    \"take_profits\": [\n        {\n            \"level\": 2986.79,\n            \"reward_ratio\": 1.8,\n            \"percentage_gain\": 1.5,\n            \"description\": \"TP1 - Resistance terdekat\"\n        },\n        {\n            \"level\": 3009.80,\n            \"reward_ratio\": 2.5,\n            \"percentage_gain\": 2.5,\n            \"description\": \"TP2 - 24h high breakout\"\n        },\n        {\n            \"level\": 3050.00,\n            \"reward_ratio\": 3.5,\n            \"percentage_gain\": 4.0,\n            \"description\": \"TP3 - Target ekstensi bullish\"\n        }\n    ],\n    \"stop_loss\": {\n        \"level\": 2900.00,\n        \"reason\": \"Di bawah semua support kunci dan 24h low\"\n    },\n    \"position_size\": 0.08,\n    \"risk_per_trade\": 0.03,\n    \"max_drawdown\": 0.15,\n    \"support_levels\": [2914.44, 2927.33, 2941.28],\n    \"resistance_levels\": [2986.79, 3009.80, 3050.00],\n    \"risk_reward_ratio\": 2.3,\n    \"probability_of_success\": 0.6,\n    \"expected_return\": 0.035,\n    \"market_conditions\": \"ETH berada dalam uptrend jangka pendek dengan harga di atas multiple supports. RSI 66.72 menunjukkan momentum bullish namun mendekati overbought. MACD positif (9.9257 > 6.7549) mengkonfirmasi momentum naik. Volume perlu dipantau untuk konfirmasi breakout resistance.\",\n    \"notes\": [\n        \"Monitor konfirmasi breakout di atas $2986.79\",\n        \"Perhatikan volume pada saat retest support\",\n        \"RSI mendekati 70 - waspadai potensi koreksi\",\n        \"MACD masih bullish divergence\"\n    ],\n    \"warnings\": [\n        \"Hindari entry jika RSI > 70 tanpa konfirmasi volume tinggi\",\n        \"Stop loss wajib dipasang karena volatilitas crypto\",\n        \"Risk profile aggressive - hanya untuk trader berpengalaman\",\n        \"Market crypto sangat volatile - siapkan mental untuk swing 3-5%\"\n    ]\n}"
+}
