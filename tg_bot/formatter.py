@@ -94,6 +94,10 @@ Example: `/plan ETHUSDT 1h`
 /signals - Get current signals for subscriptions
 /trending - Show trending coins
 
+*MARKET SCREENING*
+/screen [timeframe] [limit] - Screen market for setups
+/screener_help - Show screening help
+
 *SUBSCRIPTIONS*
 /subscribe [symbol] - Subscribe to symbol updates
 /unsubscribe [symbol] - Unsubscribe
@@ -482,3 +486,126 @@ def format_positions_list(positions: List) -> str:
     message += "Gunakan /portfolio_close ID PRICE untuk menutup posisi"
 
     return message
+
+
+def format_screening_results(results: List, summary: Dict) -> str:
+    """Format market screening results"""
+    if not results:
+        return f"""{TelegramFormatter.EMOJI['info']} *Market Screening Results*
+
+No coins passed the screening criteria.
+
+Try lowering the minimum score or screening more coins.
+"""
+
+    timeframe = summary.get('timeframe', 'Unknown')
+    total = len(results)
+    avg_score = summary.get('avg_score', 0)
+    top_score = summary.get('top_score', 0)
+    bullish_count = summary.get('bullish', 0)
+    bearish_count = summary.get('bearish', 0)
+
+    message = f"""{TelegramFormatter.EMOJI['chart']} *Market Screening Results* - {timeframe.upper()}
+
+{TelegramFormatter.EMOJI['target']} *Top {total} Coins Passed*
+{TelegramFormatter.EMOJI['sparkles']} *Avg Score*: {avg_score:.1f}/10
+{TelegramFormatter.EMOJI['fire']} *Top Score*: {top_score:.1f}/10
+{TelegramFormatter.EMOJI['bullish']} *Bullish*: {bullish_count} | {TelegramFormatter.EMOJI['bearish']} *Bearish*: {bearish_count}
+
+"""
+
+    for i, result in enumerate(results[:20], 1):  # Max 20 results
+        # Score stars
+        if result.score >= 9.0:
+            stars = "⭐⭐⭐"
+        elif result.score >= 8.0:
+            stars = "⭐⭐"
+        elif result.score >= 7.0:
+            stars = "⭐"
+        else:
+            stars = ""
+
+        # Trend emoji
+        trend_emoji = {
+            'BULLISH': TelegramFormatter.EMOJI['bullish'],
+            'BEARISH': TelegramFormatter.EMOJI['bearish'],
+            'NEUTRAL': TelegramFormatter.EMOJI['neutral']
+        }.get(result.trend, TelegramFormatter.EMOJI['neutral'])
+
+        # Format price
+        formatted_price = TelegramFormatter._format_price(result.current_price)
+
+        message += f"""*{i}. {result.symbol}* {stars}
+💎 Score: {result.score:.1f}/10 {trend_emoji}
+💰 Price: {formatted_price}
+📊 24h: {result.change_24h:+.2f}%
+📈 {result.trend}
+🔑 {', '.join(result.signals[:3])}
+
+"""
+
+    message += f"""_{summary.get('timestamp', datetime.now()).strftime('%H:%M:%S')}_
+
+Use /plan [symbol] for full trading plan! {TelegramFormatter.EMOJI['robot']}
+"""
+
+    return message
+
+
+def format_screening_loading(timeframe: str, limit: int) -> str:
+    """Format screening loading message"""
+    return f"""⏳ *Market Screening Started*
+
+🔍 Screening {limit} top USDT pairs
+📊 Timeframe: {timeframe.upper()}
+⚡ AI-powered analysis
+
+This may take 2-5 minutes. Please wait...
+"""
+
+
+def format_screening_error(error: str) -> str:
+    """Format screening error message"""
+    return f"""{TelegramFormatter.EMOJI['cross']} *Screening Error*
+
+{error}
+
+Please try again or use /screener_help for more information.
+"""
+
+
+def format_screener_help() -> str:
+    """Format screener help message"""
+    return f"""{TelegramFormatter.EMOJI['info']} *Market Screener Help*
+
+📊 *Quick Market Screening*
+
+Screen top coins based on market structure and technical setup.
+
+*COMMANDS:*
+/screen [timeframe] [limit] - Screen market
+• timeframe: 1h or 4h (default: 4h)
+• limit: Number of coins to screen (default: 100)
+
+*EXAMPLES:*
+/screen 4h 100 - Screen top 100 on 4h
+/screen 1h 50 - Screen top 50 on 1h
+
+*SCORING SYSTEM (0-10):*
+• Trend Structure (BOS, HH/HL): 3 points
+• EMA Alignment: 2 points
+• Momentum (RSI, MACD): 2 points
+• Volume confluence: 2 points
+• Support/Resistance: 1 point
+
+*OUTPUT:*
+• List of top 20 coins with score >= 7.0
+• Ranked by score (highest first)
+• Brief analysis for each coin
+
+*NEXT STEPS:*
+• /plan [symbol] - Get full trading plan
+• /analyze [symbol] - Quick technical analysis
+
+⚠️ *Note:* Screening is on-demand only, not scheduled.
+"""

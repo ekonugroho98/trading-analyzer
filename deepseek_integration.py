@@ -829,17 +829,124 @@ class TradingPlanGenerator:
         logger.info(f"Trading plan exported to CSV: {filepath}")
         return filepath
 
+# ============ QUICK SCREENING GENERATOR ============
+async def generate_quick_screening(
+    symbol: str,
+    timeframe: str,
+    indicators: Dict[str, Any],
+    current_price: float
+) -> Dict[str, Any]:
+    """
+    Generate quick screening result for a coin
+    Faster than full trading plan, used for market screening
+    """
+    import asyncio
+
+    try:
+        # Create simple screening prompt
+        prompt = f"""
+        Anda adalah MARKET SCREENER untuk cryptocurrency.
+
+        Buat QUICK SCREENING untuk {symbol} pada timeframe {timeframe}.
+
+        DATA TEKNIKAL:
+        - Current Price: ${current_price:.8f}
+        - RSI: {indicators.get('rsi', 50):.2f}
+        - MACD: {indicators.get('macd', 0):.4f}
+        - EMA 20: {indicators.get('ema_20', 0):.8f}
+        - EMA 50: {indicators.get('ema_50', 0):.8f}
+        - EMA 200: {indicators.get('ema_200', 0):.8f}
+        - Volume 24h: ${indicators.get('volume_24h', 0):,.0f}
+
+        BERIKAN SCORE DALAM FORMAT JSON:
+        {{
+            "score": 8.5,
+            "trend": "BULLISH",
+            "signals": [
+                "Strong uptrend with HH/HL",
+                "EMA 20/50/200 bullish alignment",
+                "RSI showing momentum"
+            ],
+            "analysis": "Strong setup with retest opportunity at support"
+        }}
+
+        SCORING CRITERIA (0-10):
+        - Trend Structure (BOS, HH/HL): 3 points
+        - EMA Alignment: 2 points
+        - Momentum (RSI, MACD): 2 points
+        - Volume confluence: 2 points
+        - Support/Resistance levels: 1 point
+
+        RESPOND HANYA DENGAN JSON, TANPA TEKS LAINNYA.
+        """
+
+        # Make API request
+        session = requests.Session()
+        session.headers.update({
+            "Authorization": f"Bearer {config.DEEPSEEK.api_key}",
+            "Content-Type": "application/json"
+        })
+
+        payload = {
+            "model": config.DEEPSEEK.model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are a cryptocurrency market screener. Respond only with valid JSON."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "max_tokens": 500,
+            "temperature": 0.2,
+            "response_format": {"type": "json_object"}
+        }
+
+        # Run in thread pool to avoid blocking
+        response = await asyncio.to_thread(
+            session.post,
+            f"{config.DEEPSEEK.base_url}/chat/completions",
+            json=payload,
+            timeout=10
+        )
+
+        if response.status_code != 200:
+            logger.error(f"API Error for {symbol}: {response.status_code}")
+            return _create_fallback_screening(symbol, current_price)
+
+        result_data = response.json()
+        screening_json = json.loads(result_data['choices'][0]['message']['content'])
+
+        return screening_json
+
+    except Exception as e:
+        logger.error(f"Error generating quick screening for {symbol}: {e}")
+        return _create_fallback_screening(symbol, current_price)
+
+
+def _create_fallback_screening(symbol: str, current_price: float) -> Dict[str, Any]:
+    """Create fallback screening when AI fails"""
+    return {
+        "score": 5.0,
+        "trend": "NEUTRAL",
+        "signals": ["Unable to analyze"],
+        "analysis": "Analysis failed, manual review needed"
+    }
+
+
 # ============ EXAMPLE USAGE ============
 def main():
     """Example of generating and displaying trading plan"""
     logging.basicConfig(level=logging.INFO)
-    
+
     print("🚀 TRADING PLAN GENERATOR")
     print("="*60)
-    
+
     # Initialize generator
     generator = TradingPlanGenerator()
-    
+
     # Create analysis request
     request = AnalysisRequest(
         symbol="BTCUSDT",
@@ -848,22 +955,22 @@ def main():
         analysis_type="trading_plan",
         risk_profile="moderate"
     )
-    
+
     # Generate trading plan
     print(f"\n📊 Generating trading plan for {request.symbol}...")
     trading_plan = generator.generate_trading_plan(request)
-    
+
     # Print trading plan
     generator.print_trading_plan(trading_plan)
-    
+
     # Save to files
     json_file = generator.save_trading_plan(trading_plan)
     csv_file = generator.export_to_csv(trading_plan)
-    
+
     print(f"\n💾 Files saved:")
     print(f"   JSON: {json_file}")
     print(f"   CSV: {csv_file}")
-    
+
     # Display simple summary
     print(f"\n📋 QUICK SUMMARY:")
     print(f"   Signal: {trading_plan.overall_signal.signal_type}")

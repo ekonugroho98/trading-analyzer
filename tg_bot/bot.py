@@ -80,6 +80,11 @@ class TelegramTradingBot:
         app.add_handler(CommandHandler("portfolio_list", portfolio_list))
         app.add_handler(CommandHandler("portfolio_help", portfolio_help))
 
+        # Market screening commands (NEW)
+        from tg_bot.handlers.screening import screen_command, screener_help_command
+        app.add_handler(CommandHandler("screen", screen_command))
+        app.add_handler(CommandHandler("screener_help", screener_help_command))
+
         # Callback query handlers for inline keyboards
         app.add_handler(CallbackQueryHandler(portfolio_handler.add_from_plan_callback, pattern="^add_portfolio_"))
         app.add_handler(CallbackQueryHandler(portfolio_confirm_callback, pattern="^portfolio_confirm_"))
