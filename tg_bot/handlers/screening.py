@@ -14,14 +14,135 @@ from tg_bot.formatter import (
     format_screening_loading,
     format_screening_results,
     format_screening_error,
-    format_screener_help
+    format_screener_help,
+    TelegramFormatter
 )
 from tg_bot.screening_profiles import (
     get_profile, format_profile_list, format_profile_info,
     is_valid_interval, format_interval_choices
 )
+from deepseek_integration import TradingPlanGenerator, AnalysisRequest
 
 logger = logging.getLogger(__name__)
+
+
+def is_actionable_signal(trading_plan) -> bool:
+    """Check if trading plan signal is actionable (not HOLD/WAIT)
+
+    Args:
+        trading_plan: TradingPlan object
+
+    Returns:
+        True if signal is BUY or SELL, False if HOLD/WAIT
+    """
+    signal_type = trading_plan.overall_signal.signal_type.upper()
+    return signal_type in ['BUY', 'SELL']
+
+
+async def generate_and_send_plans(
+    results: list,
+    timeframe: str,
+    chat_id: int,
+    context: ContextTypes.DEFAULT_TYPE
+):
+    """Generate trading plans for screening results and send actionable ones
+
+    Args:
+        results: List of screening results
+        timeframe: Timeframe used for screening
+        chat_id: Telegram chat ID to send plans to
+        context: Bot context
+    """
+    if not results:
+        return
+
+    # Limit to top 10 results to avoid overwhelming user and API
+    top_results = results[:10]
+
+    # Get user's preferred exchange
+    preferred_exchange = db.get_user_preference(chat_id, 'default_exchange', default='bybit')
+
+    generator = TradingPlanGenerator()
+    loop = asyncio.get_event_loop()
+
+    logger.info(f"Generating trading plans for {len(top_results)} coins...")
+
+    # Send progress message
+    progress_msg = await context.bot.send_message(
+        chat_id=chat_id,
+        text=f"🔄 Generating AI trading plans for top {len(top_results)} coins...\n"
+             f"Only actionable signals (BUY/SELL) will be sent.",
+        parse_mode='Markdown'
+    )
+
+    actionable_count = 0
+
+    for i, result in enumerate(top_results, 1):
+        try:
+            symbol = result.get('symbol', '')
+            if not symbol:
+                continue
+
+            logger.info(f"Generating plan {i}/{len(top_results)}: {symbol}")
+
+            # Create analysis request
+            request = AnalysisRequest(
+                symbol=symbol,
+                timeframe=timeframe,
+                data_points=100,
+                preferred_exchange=preferred_exchange,
+                analysis_type="trading_plan"
+            )
+
+            # Generate trading plan
+            plan = await loop.run_in_executor(None, generator.generate_trading_plan, request)
+
+            # Check if signal is actionable (not HOLD/WAIT)
+            if plan and is_actionable_signal(plan):
+                try:
+                    # Send the trading plan
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text=TelegramFormatter.trading_plan(plan),
+                        parse_mode='Markdown'
+                    )
+                    actionable_count += 1
+                    logger.info(f"Sent actionable plan for {symbol}: {plan.overall_signal.signal_type}")
+
+                    # Small delay between messages to avoid rate limiting
+                    await asyncio.sleep(1)
+
+                except Exception as e:
+                    logger.error(f"Failed to send plan for {symbol}: {e}")
+            else:
+                logger.info(f"Skipping {symbol} - signal is {plan.overall_signal.signal_type if plan else 'FAILED'}")
+
+        except Exception as e:
+            logger.error(f"Failed to generate plan for {result.get('symbol', 'unknown')}: {e}")
+            continue
+
+    # Delete progress message
+    try:
+        await progress_msg.delete()
+    except:
+        pass
+
+    # Send summary
+    summary_msg = f"""✅ *Auto-Trading Plans Complete*
+
+Generated plans for {len(top_results)} coins
+Sent {actionable_count} actionable signals
+
+⏱️ Timeframe: {timeframe}
+💱 Exchange: {preferred_exchange.upper()}
+
+*Note*: Only BUY/SELL signals are sent. HOLD/WAIT signals are filtered out automatically."""
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=summary_msg,
+        parse_mode='Markdown'
+    )
 
 
 async def screen_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -95,6 +216,11 @@ async def screen_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
             logger.info(f"Screening complete: {len(results)} coins found")
+
+            # Auto-generate trading plans for screening results
+            # This will run in background and send actionable signals (BUY/SELL)
+            chat_id = update.effective_chat.id
+            asyncio.create_task(generate_and_send_plans(results, timeframe, chat_id, context))
         else:
             await update.effective_message.reply_text(
                 format_screening_results(results, summary),
