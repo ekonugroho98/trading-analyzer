@@ -514,14 +514,16 @@ class TradingPlanGenerator:
         for tf in additional_timeframes:
             try:
                 # Fetch 20 candles for additional timeframes (trend summary only)
-                if request.symbol.endswith('USDT'):
+                # Default to Bybit, fallback to Binance
+                df_tf = self.collector.get_bybit_klines(
+                    symbol=request.symbol,
+                    interval=tf,
+                    limit=20
+                )
+
+                # Fallback to Binance if Bybit fails
+                if df_tf is None or len(df_tf) < 10:
                     df_tf = self.collector.get_binance_klines_auto(
-                        symbol=request.symbol,
-                        interval=tf,
-                        limit=20
-                    )
-                else:
-                    df_tf = self.collector.get_bybit_klines(
                         symbol=request.symbol,
                         interval=tf,
                         limit=20
@@ -552,18 +554,20 @@ class TradingPlanGenerator:
             # Get data
             logger.info(f"Generating trading plan for {request.symbol} ({request.timeframe})...")
 
-            if request.symbol.endswith('USDT'):
-                # Use auto-detect to support both spot and futures
+            # Default to Bybit, fallback to Binance if symbol doesn't exist on Bybit
+            df = self.collector.get_bybit_klines(
+                symbol=request.symbol,
+                interval=request.timeframe,
+                limit=min(request.data_points, 200)
+            )
+
+            # Fallback to Binance if Bybit fails
+            if df is None or len(df) < 20:
+                logger.info(f"Bybit data unavailable for {request.symbol}, trying Binance...")
                 df = self.collector.get_binance_klines_auto(
                     symbol=request.symbol,
                     interval=request.timeframe,
                     limit=request.data_points
-                )
-            else:
-                df = self.collector.get_bybit_klines(
-                    symbol=request.symbol,
-                    interval=request.timeframe,
-                    limit=min(request.data_points, 200)
                 )
 
             if df is None or len(df) < 20:
