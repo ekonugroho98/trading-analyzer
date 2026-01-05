@@ -73,21 +73,22 @@ Here's what I can do for you:
     @staticmethod
     def help_command() -> str:
         """Help message with all commands"""
-        return f"""*📚 Crypto Trading Analyzer - Help*
+        return """📚 *Crypto Trading Analyzer - Help*
 
 *BASIC COMMANDS*
 /start - Initialize bot
 /help - Show this help message
 /status - System status check
+/settings - View/change your settings
 
 *MARKET DATA*
-/price [symbol] - Get current price & info
-Example: `/price BTCUSDT`
+/price [symbol] - Get current price and info
+Example: /price BTCUSDT
 
 *TRADING ANALYSIS*
 /plan [symbol] - Generate AI trading plan
 /plan [symbol] [timeframe] - Plan with timeframe
-Example: `/plan ETHUSDT 1h`
+Example: /plan ETHUSDT 1h
 
 /analyze [symbol] - Quick technical analysis
 /ta [symbol] - Comprehensive technical analysis
@@ -106,13 +107,13 @@ Example: `/plan ETHUSDT 1h`
 
 *ALERTS*
 /setalert [symbol] [above/below] [price] - Set price alert
-Example: `/setalert BTCUSDT above 90000`
+Example: /setalert BTCUSDT above 90000
 
 /myalerts - List your alerts
 /delalert [alert_id] - Delete alert
 /clearalerts - Clear all alerts
 
-*PAPER TRADING* (Simulasi Tanpa Modal)
+*PAPER TRADING* - Simulasi Tanpa Modal
 /portfolio - View portfolio summary
 /portfolio_add - Add new paper trading position
 /portfolio_list - List all open positions
@@ -124,9 +125,29 @@ Example: `/setalert BTCUSDT above 90000`
 /addposition - Add real position
 /closeposition - Close real position
 
+*WHALE ALERTS* - Track Large Transactions
+/whale_alerts [symbol] [limit] - Show recent whale transactions
+Example: /whale_alerts BTC 10
+
+/whale_flow - Show exchange inflows and outflows
+/whale_subscribe [symbol] - Subscribe to whale alerts
+/whale_unsubscribe [symbol] - Unsubscribe from whale alerts
+/whale_list - List your whale subscriptions
+
+*SIGNAL HISTORY* - Track Your Performance
+/signal_history [symbol] [limit] - View signal history
+Example: /signal_history BTCUSDT 20
+
+/signal_stats [days] - Show performance statistics
+Example: /signal_stats 30
+
+/best_signals [limit] - Show best performing signals
+/worst_signals [limit] - Show worst performing signals
+/signal_accuracy - Show accuracy by timeframe
+
 *Need more help?*
 Contact @admin for support
-{TelegramFormatter.EMOJI['rocket']}
+🚀
 """
 
     @staticmethod

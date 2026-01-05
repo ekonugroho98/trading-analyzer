@@ -48,9 +48,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id
         db.update_last_active(chat_id)
 
-        # Send help message
+        # Send help message (plain text, no formatting)
         help_msg = TelegramFormatter.help_command()
-        await update.message.reply_text(help_msg, parse_mode='Markdown')
+        await update.message.reply_text(help_msg)
 
     except Exception as e:
         logger.error(f"Error in help_command: {e}")
