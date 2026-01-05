@@ -125,6 +125,13 @@ class TelegramTradingBot:
         app.add_handler(CommandHandler("worst_signals", worst_signals_command))
         app.add_handler(CommandHandler("signal_accuracy", signal_accuracy_command))
 
+        # Settings commands (NEW)
+        from tg_bot.handlers.settings import (
+            set_exchange_command, my_exchange_command
+        )
+        app.add_handler(CommandHandler("set_exchange", set_exchange_command))
+        app.add_handler(CommandHandler("my_exchange", my_exchange_command))
+
         # Callback query handlers for inline keyboards
         app.add_handler(CallbackQueryHandler(portfolio_handler.add_from_plan_callback, pattern="^add_portfolio_"))
         app.add_handler(CallbackQueryHandler(portfolio_confirm_callback, pattern="^portfolio_confirm_"))

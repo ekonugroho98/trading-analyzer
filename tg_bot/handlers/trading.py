@@ -130,6 +130,9 @@ async def plan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         symbol = context.args[0].upper()
         timeframe = context.args[1] if len(context.args) > 1 else "4h"
 
+        # Get user's preferred exchange
+        preferred_exchange = db.get_user_preference(chat_id, 'default_exchange', default='bybit')
+
         # Send loading message
         loading_msg = await update.message.reply_text(
             TelegramFormatter.loading_message(f"Generating AI trading plan for {symbol}")
@@ -143,6 +146,7 @@ async def plan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 symbol=symbol,
                 timeframe=timeframe,
                 data_points=100,
+                preferred_exchange=preferred_exchange,
                 analysis_type="trading_plan"
             )
 
