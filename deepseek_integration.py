@@ -500,11 +500,13 @@ class TradingPlanGenerator:
 
         # Define timeframe hierarchy
         timeframe_map = {
-            '15m': [],
-            '1h': ['15m'],
-            '2h': ['15m', '1h'],
-            '4h': ['1h', '15m'],
-            '1d': ['4h', '1h']
+            '1m': [],
+            '5m': ['1m'],
+            '15m': ['5m', '1m'],
+            '1h': ['15m', '5m'],
+            '2h': ['15m', '1h', '5m'],
+            '4h': ['1h', '15m', '5m'],
+            '1d': ['4h', '1h', '15m']
         }
 
         additional_timeframes = timeframe_map.get(request.timeframe, [])
