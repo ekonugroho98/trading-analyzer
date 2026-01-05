@@ -94,7 +94,17 @@ class TradingPlan:
     # Signal Validity
     expires_at: Optional[datetime] = None  # Waktu kadaluarsa sinyal
 
-@dataclass 
+@dataclass
+class TimeframeAnalysis:
+    """Multi-timeframe analysis result"""
+    timeframe: str
+    trend: str  # BULLISH, BEARISH, SIDEWAYS
+    current_price: float
+    sma_trend: str  # ABOVE SMA, BELOW SMA
+    momentum: str  # STRONG, WEAK, NEUTRAL
+    summary: str
+
+@dataclass
 class AnalysisRequest:
     """Analysis request structure"""
     symbol: str
@@ -140,7 +150,8 @@ class TradingPlanGenerator:
         self.last_request_time = time.time()
     
     # ============ TRADING PLAN PROMPT ============
-    def _create_trading_plan_prompt(self, df: pd.DataFrame, request: AnalysisRequest) -> str:
+    def _create_trading_plan_prompt(self, df: pd.DataFrame, request: AnalysisRequest,
+                                    mtf_data: List[TimeframeAnalysis] = None) -> str:
         """
         Create specialized prompt untuk trading plan
         """
@@ -148,15 +159,15 @@ class TradingPlanGenerator:
         current_price = df['close'].iloc[-1]
         high_24h = df['high'].tail(24).max()
         low_24h = df['low'].tail(24).min()
-        
+
         # Support & Resistance
         support_levels = self._calculate_support_levels(df)
         resistance_levels = self._calculate_resistance_levels(df)
-        
+
         # Indicators
         rsi = self._calculate_rsi(df)
         macd, signal = self._calculate_macd(df)
-        
+
         # Determine precision based on price
         if current_price >= 1000:
             price_precision = 2
@@ -167,6 +178,27 @@ class TradingPlanGenerator:
         else:
             price_precision = 6
             price_format = f"${current_price:.6f}"
+
+        # Build multi-timeframe section
+        mtf_section = ""
+        if mtf_data:
+            mtf_section = "\n        MULTI-TIMEFRAME ANALYSIS (Confluence Check):\n"
+            for tf_analysis in mtf_data:
+                mtf_section += f"        • {tf_analysis.timeframe.upper()}: {tf_analysis.summary}\n"
+
+            # Check confluence
+            if len(mtf_data) >= 2:
+                trends = [tf.trend for tf in mtf_data]
+                if all(t == "BULLISH" for t in trends):
+                    mtf_section += "        ✅ STRONG BULLISH CONFLUENCE - All timeframes aligned bullish\n"
+                elif all(t == "BEARISH" for t in trends):
+                    mtf_section += "        ✅ STRONG BEARISH CONFLUENCE - All timeframes aligned bearish\n"
+                elif trends.count("BULLISH") > trends.count("BEARISH"):
+                    mtf_section += "        ⚠️ PARTIAL BULLISH CONFLUENCE - Most timeframes bullish\n"
+                elif trends.count("BEARISH") > trends.count("BULLISH"):
+                    mtf_section += "        ⚠️ PARTIAL BEARISH CONFLUENCE - Most timeframes bearish\n"
+                else:
+                    mtf_section += "        ❌ NO CLEAR CONFLUENCE - Timeframes showing mixed signals\n"
 
         prompt = f"""
         Anda adalah CONSERVATIVE TRADING SPECIALIST dengan pendekatan RISK-ADVERSE.
@@ -191,7 +223,7 @@ class TradingPlanGenerator:
         - Resistance Levels: {', '.join([f'${r:.{price_precision}f}' for r in resistance_levels[:3]])}
         - RSI (14): {rsi:.2f}
         - MACD: {macd:.4f}, Signal: {signal:.4f}
-
+{mtf_section}
         REQUIREMENT MINIMAL UNTUK SIGNAL:
         ✅ MINIMAL 2 INDIKATOR HARUS ALIGN (Confluence):
            - Trend direction (MA alignment)
@@ -406,13 +438,104 @@ class TradingPlanGenerator:
         """Calculate MACD"""
         if len(df) < 26:
             return 0.0, 0.0
-        
+
         exp1 = df['close'].ewm(span=12, adjust=False).mean()
         exp2 = df['close'].ewm(span=26, adjust=False).mean()
         macd = exp1 - exp2
         signal = macd.ewm(span=9, adjust=False).mean()
         return float(macd.iloc[-1]), float(signal.iloc[-1])
-    
+
+    def _analyze_timeframe(self, df: pd.DataFrame, timeframe: str) -> TimeframeAnalysis:
+        """Quick trend analysis for a timeframe"""
+        current_price = float(df['close'].iloc[-1])
+
+        # Calculate SMA 20
+        if len(df) >= 20:
+            sma_20 = df['close'].rolling(window=20).mean().iloc[-1]
+            sma_trend = "ABOVE SMA" if current_price > sma_20 else "BELOW SMA"
+        else:
+            sma_trend = "INSUFFICIENT DATA"
+
+        # Determine trend based on price action
+        if len(df) >= 10:
+            recent_highs = df['high'].tail(10).max()
+            recent_lows = df['low'].tail(10).min()
+
+            if current_price > (recent_highs + recent_lows) / 2:
+                trend = "BULLISH"
+            elif current_price < (recent_highs + recent_lows) / 2:
+                trend = "BEARISH"
+            else:
+                trend = "SIDEWAYS"
+        else:
+            trend = "SIDEWAYS"
+
+        # Determine momentum using RSI
+        rsi = self._calculate_rsi(df)
+        if rsi > 60:
+            momentum = "STRONG" if trend == "BULLISH" else "WEAK"
+        elif rsi < 40:
+            momentum = "STRONG" if trend == "BEARISH" else "WEAK"
+        else:
+            momentum = "NEUTRAL"
+
+        # Create summary
+        summary = f"{trend} - Price {sma_trend}, Momentum {momentum}"
+
+        return TimeframeAnalysis(
+            timeframe=timeframe,
+            trend=trend,
+            current_price=current_price,
+            sma_trend=sma_trend,
+            momentum=momentum,
+            summary=summary
+        )
+
+    def _get_multi_timeframe_data(self, request: AnalysisRequest) -> List[TimeframeAnalysis]:
+        """Get data from multiple timeframes for confluence analysis"""
+        mtf_data = []
+
+        if not request.include_multi_timeframe:
+            return mtf_data
+
+        # Define timeframe hierarchy
+        timeframe_map = {
+            '15m': [],
+            '1h': ['15m'],
+            '2h': ['15m', '1h'],
+            '4h': ['1h', '15m'],
+            '1d': ['4h', '1h']
+        }
+
+        additional_timeframes = timeframe_map.get(request.timeframe, [])
+
+        for tf in additional_timeframes:
+            try:
+                # Fetch 20 candles for additional timeframes (trend summary only)
+                if request.symbol.endswith('USDT'):
+                    df_tf = self.collector.get_binance_klines_auto(
+                        symbol=request.symbol,
+                        interval=tf,
+                        limit=20
+                    )
+                else:
+                    df_tf = self.collector.get_bybit_klines(
+                        symbol=request.symbol,
+                        interval=tf,
+                        limit=20
+                    )
+
+                if df_tf is not None and len(df_tf) >= 10:
+                    analysis = self._analyze_timeframe(df_tf, tf)
+                    mtf_data.append(analysis)
+                    logger.info(f"Analyzed {tf} timeframe for {request.symbol}")
+
+            except Exception as e:
+                logger.warning(f"Failed to analyze {tf} timeframe: {e}")
+                continue
+
+        return mtf_data
+
     # ============ GENERATE TRADING PLAN ============
     def generate_trading_plan(self, request: AnalysisRequest) -> TradingPlan:
         """
@@ -440,12 +563,16 @@ class TradingPlanGenerator:
                     interval=request.timeframe,
                     limit=min(request.data_points, 200)
                 )
-            
+
             if df is None or len(df) < 20:
                 raise ValueError(f"Insufficient data for {request.symbol}")
-            
+
+            # Get multi-timeframe data
+            mtf_data = self._get_multi_timeframe_data(request)
+            logger.info(f"Collected {len(mtf_data)} additional timeframe(s) for analysis")
+
             # Create prompt
-            prompt = self._create_trading_plan_prompt(df, request)
+            prompt = self._create_trading_plan_prompt(df, request, mtf_data)
             
             # Prepare API request
             payload = {
