@@ -137,6 +137,22 @@ class TelegramDatabase:
             )
         """)
 
+        # Screening schedules table (for scheduled market screening)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS screening_schedules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id INTEGER,
+                timeframe TEXT DEFAULT '4h',
+                interval_minutes INTEGER DEFAULT 60,
+                min_score REAL DEFAULT 7.0,
+                enabled BOOLEAN DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_run TIMESTAMP,
+                FOREIGN KEY (chat_id) REFERENCES users(chat_id),
+                UNIQUE(chat_id, timeframe)
+            )
+        """)
+
         # Create indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_subscriptions_chat_id ON subscriptions(chat_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_alerts_chat_id ON alerts(chat_id)")
@@ -145,6 +161,8 @@ class TelegramDatabase:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_positions_chat_id ON portfolio_positions(chat_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_positions_status ON portfolio_positions(status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_transactions_chat_id ON portfolio_transactions(chat_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_screening_schedules_chat_id ON screening_schedules(chat_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_screening_schedules_enabled ON screening_schedules(enabled)")
 
         conn.commit()
         conn.close()
@@ -818,6 +836,137 @@ class TelegramDatabase:
         except Exception as e:
             logger.error(f"Error adding transaction: {e}")
             return None
+
+    # ============ SCREENING SCHEDULES ============
+
+    def add_screening_schedule(self, chat_id: int, timeframe: str = '4h',
+                                interval_minutes: int = 120, min_score: float = 7.0) -> bool:
+        """Add or update screening schedule for a user"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # Insert or replace
+            cursor.execute("""
+                INSERT OR REPLACE INTO screening_schedules
+                (chat_id, timeframe, interval_minutes, min_score, enabled, created_at)
+                VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
+            """, (chat_id, timeframe, interval_minutes, min_score))
+
+            conn.commit()
+            conn.close()
+
+            logger.info(f"Screening schedule added/updated: chat_id={chat_id}, timeframe={timeframe}")
+            return True
+        except Exception as e:
+            logger.error(f"Error adding screening schedule: {e}")
+            return False
+
+    def get_screening_schedules(self, chat_id: int = None) -> List[Dict]:
+        """Get screening schedules
+
+        Args:
+            chat_id: If provided, get schedules for this user only. Otherwise get all.
+
+        Returns:
+            List of schedule dictionaries
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            if chat_id:
+                cursor.execute("""
+                    SELECT id, chat_id, timeframe, interval_minutes, min_score, enabled, created_at, last_run
+                    FROM screening_schedules
+                    WHERE chat_id = ? AND enabled = 1
+                """, (chat_id,))
+            else:
+                cursor.execute("""
+                    SELECT id, chat_id, timeframe, interval_minutes, min_score, enabled, created_at, last_run
+                    FROM screening_schedules
+                    WHERE enabled = 1
+                """)
+
+            rows = cursor.fetchall()
+            conn.close()
+
+            schedules = []
+            for row in rows:
+                schedules.append({
+                    'id': row[0],
+                    'user_id': row[1],
+                    'timeframe': row[2],
+                    'interval_minutes': row[3],
+                    'min_score': row[4],
+                    'enabled': bool(row[5]),
+                    'created_at': row[6],
+                    'last_run': row[7]
+                })
+
+            return schedules
+        except Exception as e:
+            logger.error(f"Error getting screening schedules: {e}")
+            return []
+
+    def get_all_screening_schedules(self) -> List[Dict]:
+        """Get all enabled screening schedules (alias for get_screening_schedules)"""
+        return self.get_screening_schedules()
+
+    def remove_screening_schedule(self, chat_id: int, timeframe: str = None) -> bool:
+        """Remove screening schedule
+
+        Args:
+            chat_id: User chat ID
+            timeframe: If provided, remove only this timeframe. Otherwise remove all.
+
+        Returns:
+            True if successful
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            if timeframe:
+                cursor.execute("""
+                    DELETE FROM screening_schedules
+                    WHERE chat_id = ? AND timeframe = ?
+                """, (chat_id, timeframe))
+            else:
+                cursor.execute("""
+                    DELETE FROM screening_schedules
+                    WHERE chat_id = ?
+                """, (chat_id,))
+
+            conn.commit()
+            deleted = cursor.rowcount
+            conn.close()
+
+            logger.info(f"Screening schedule removed: chat_id={chat_id}, timeframe={timeframe}, deleted={deleted}")
+            return deleted > 0
+        except Exception as e:
+            logger.error(f"Error removing screening schedule: {e}")
+            return False
+
+    def update_screening_last_run(self, schedule_id: int) -> bool:
+        """Update last_run timestamp for a screening schedule"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                UPDATE screening_schedules
+                SET last_run = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (schedule_id,))
+
+            conn.commit()
+            conn.close()
+
+            return True
+        except Exception as e:
+            logger.error(f"Error updating screening last_run: {e}")
+            return False
 
 
 # Global database instance
