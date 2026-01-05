@@ -6,7 +6,7 @@ Output terstruktur untuk trading plan lengkap
 import requests
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Union
 import pandas as pd
 import numpy as np
@@ -90,6 +90,9 @@ class TradingPlan:
 
     # Raw Analysis
     raw_analysis: str = ""
+
+    # Signal Validity
+    expires_at: Optional[datetime] = None  # Waktu kadaluarsa sinyal
 
 @dataclass 
 class AnalysisRequest:
@@ -531,6 +534,17 @@ class TradingPlanGenerator:
         # Get current price from latest candle
         current_price = float(df['close'].iloc[-1])
 
+        # Calculate signal expiration based on timeframe
+        # 1h timeframe = 3 hours valid, 4h timeframe = 6 hours valid
+        timeframe_hours = {
+            '1h': 3,
+            '2h': 4,
+            '4h': 6,
+            '1d': 12
+        }
+        valid_hours = timeframe_hours.get(request.timeframe, 6)
+        expires_at = datetime.now() + timedelta(hours=valid_hours)
+
         # Safely extract stop_loss data
         stop_loss_data = plan_data.get('stop_loss')
         if isinstance(stop_loss_data, dict):
@@ -566,7 +580,8 @@ class TradingPlanGenerator:
             expected_return=plan_data.get('expected_return', 0.0),
             notes=plan_data.get('notes', []),
             warnings=plan_data.get('warnings', []),
-            raw_analysis=""
+            raw_analysis="",
+            expires_at=expires_at
         )
 
         return plan

@@ -208,7 +208,25 @@ Contact @admin for support
 *Current Price*: {formatted_current_price} {TelegramFormatter.EMOJI['money']}
 *Signal*: {plan.overall_signal.signal_type} {signal_emoji}
 *Confidence*: {plan.overall_signal.confidence:.1%}
-*Trend*: {plan.trend} {trend_emoji}
+*Trend*: {plan.trend} {trend_emoji}"""
+
+            # Add expiration info if available
+            if hasattr(plan, 'expires_at') and plan.expires_at:
+                from datetime import datetime
+                now = datetime.now()
+                time_left = plan.expires_at - now
+                hours_left = int(time_left.total_seconds() / 3600)
+                mins_left = int((time_left.total_seconds() % 3600) / 60)
+
+                if hours_left > 0:
+                    time_str = f"{hours_left}h {mins_left}m" if mins_left > 0 else f"{hours_left}h"
+                else:
+                    time_str = f"{mins_left}m"
+
+                message += f"""
+⏰ *Valid until*: {plan.expires_at.strftime('%Y-%m-%d %H:%M')} ({time_str} left)"""
+
+            message += """
 
 *Entry Levels*:
 """
