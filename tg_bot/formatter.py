@@ -97,7 +97,25 @@ Example: /plan ETHUSDT 1h
 
 *MARKET SCREENING*
 /screen [timeframe] [limit] - Screen market for setups
+Example: /screen 4h 100
+
 /screener_help - Show screening help
+
+*SCHEDULED SCREENING* - Otomatis Rutin Screening
+/schedule_screen [timeframe] [interval] [min_score] - Setup otomatis screening
+Example: /schedule_screen 4h 120 7.0
+Screen 4h timeframe, setiap 120 menit, min score 7.0
+
+/unschedule_screen [timeframe] - Stop scheduled screening
+Example: /unschedule_screen 4h
+
+/my_schedules - List all active schedules
+
+/profiles - Show all screening profiles
+/profile_conservative - Safe approach (4h, 6h, score 8.0)
+/profile_moderate - Balanced (4h, 2h, score 7.0)
+/profile_aggressive - Active (1h, 30m, score 6.5)
+/profile_scalper - High frequency (1h, 15m, score 6.0)
 
 *SUBSCRIPTIONS*
 /subscribe [symbol] - Subscribe to symbol updates
