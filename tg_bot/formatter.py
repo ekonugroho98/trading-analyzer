@@ -99,6 +99,10 @@ Example: /plan ETHUSDT 1h
 /screen [timeframe] [limit] - Screen market for setups
 Example: /screen 4h 100
 
+/screen_auto [timeframe] [limit] - Screen market + auto-generate AI trading plans
+Example: /screen_auto 4h 100
+Auto-sends actionable (BUY/SELL) signals only
+
 /screener_help - Show screening help
 
 *SCHEDULED SCREENING* - Otomatis Rutin Screening
