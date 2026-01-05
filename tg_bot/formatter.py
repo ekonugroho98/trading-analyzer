@@ -640,13 +640,18 @@ def format_screener_help() -> str:
 Screen top coins based on market structure and technical setup.
 
 *COMMANDS:*
-/screen [timeframe] [limit] - Screen market
+/screen [timeframe] [limit] - Screen market only
 • timeframe: 1h or 4h (default: 4h)
 • limit: Number of coins to screen (default: 100)
 
+/screen_auto [timeframe] [limit] - Screen market + auto-generate AI trading plans
+• timeframe: 1h or 4h (default: 4h)
+• limit: Number of coins to screen (default: 100)
+• Automatically sends actionable (BUY/SELL) signals only
+
 *EXAMPLES:*
-/screen 4h 100 - Screen top 100 on 4h
-/screen 1h 50 - Screen top 50 on 1h
+/screen 4h 100 - Screen top 100 on 4h (no auto plans)
+/screen_auto 4h 100 - Screen top 100 on 4h + auto-generate trading plans
 
 *SCORING SYSTEM (0-10):*
 • Trend Structure (BOS, HH/HL): 3 points
@@ -664,5 +669,5 @@ Screen top coins based on market structure and technical setup.
 • /plan [symbol] - Get full trading plan
 • /analyze [symbol] - Quick technical analysis
 
-⚠️ *Note:* Screening is on-demand only, not scheduled.
+⚠️ *Note:* /screen_auto only sends BUY/SELL signals. HOLD/WAIT signals are filtered out automatically.
 """
