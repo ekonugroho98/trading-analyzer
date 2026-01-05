@@ -83,13 +83,14 @@ class TelegramTradingBot:
 
         # Market screening commands (NEW)
         from tg_bot.handlers.screening import (
-            screen_command, screener_help_command,
+            screen_command, screener_help_command, screen_auto_command,
             schedule_screen_command, unschedule_screen_command, my_schedules_command,
             profile_conservative_command, profile_moderate_command,
             profile_aggressive_command, profile_scalper_command,
             profiles_command, profile_info_command
         )
         app.add_handler(CommandHandler("screen", screen_command))
+        app.add_handler(CommandHandler("screen_auto", screen_auto_command))
         app.add_handler(CommandHandler("screener_help", screener_help_command))
         app.add_handler(CommandHandler("schedule_screen", schedule_screen_command))
         app.add_handler(CommandHandler("unschedule_screen", unschedule_screen_command))
