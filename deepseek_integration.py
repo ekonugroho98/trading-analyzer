@@ -166,9 +166,19 @@ class TradingPlanGenerator:
             price_format = f"${current_price:.6f}"
 
         prompt = f"""
-        Anda adalah TRADING PLAN SPECIALIST dengan spesialisasi cryptocurrency.
+        Anda adalah CONSERVATIVE TRADING SPECIALIST dengan pendekatan RISK-ADVERSE.
 
-        BUATKAN TRADING PLAN LENGKAP untuk {request.symbol} pada timeframe {request.timeframe}.
+        ⚠️ FILTRI KUALITAS SETUP (WAJIB DICEK SEBELUM MEMBUAT PLAN):
+        JANGAN BUAT TRADING PLAN jika:
+        1. ADX < 20 (Market terlalu choppy/sideways)
+        2. RSI di antara 40-60 (No clear momentum)
+        3. Volume below 20 SMA (Low participation)
+        4. Price terlalu dekat dengan support/resistance (<0.5%)
+        5. Timeframe adalah 1h di luar market hours (00:00-08:00 UTC)
+
+        Jika kondisi di atas terpenuhi, return HOLD signal.
+
+        BUATKAN CONSERVATIVE TRADING PLAN untuk {request.symbol} pada timeframe {request.timeframe}.
 
         DATA TEKNIKAL SAAT INI:
         - Current Price: {price_format}
@@ -179,162 +189,167 @@ class TradingPlanGenerator:
         - RSI (14): {rsi:.2f}
         - MACD: {macd:.4f}, Signal: {signal:.4f}
 
+        REQUIREMENT MINIMAL UNTUK SIGNAL:
+        ✅ MINIMAL 2 INDIKATOR HARUS ALIGN (Confluence):
+           - Trend direction (MA alignment)
+           - Momentum indicator (RSI/MACD)
+           - Volume confirmation
+           - Support/Resistance level
+
+        ✅ RISK/REWARD MINIMAL 1:2 untuk entry pertama
+        ✅ Probability of success minimal 65%
+        ✅ Entry tidak boleh lebih dari 1.5% dari current price
+        ✅ Stop loss maximal 1.5% dari entry
+
         FORMAT OUTPUT YANG DIHARAPKAN (WAJIB DALAM JSON):
         {{
             "symbol": "{request.symbol}",
             "timeframe": "{request.timeframe}",
             "trend": "BULLISH/BEARISH/SIDEWAYS",
+            "quality_score": {{
+                "overall": 7.5,
+                "confluence_count": 3,
+                "factors": {{
+                    "trend_alignment": 8,
+                    "support_resistance": 7,
+                    "momentum": 6,
+                    "volume_quality": 5
+                }},
+                "recommendation": "GOOD SETUP"
+            }},
             "overall_signal": {{
-                "signal": "BUY/SELL/HOLD",
-                "confidence": 0.85,
-                "reason": "Alasan singkat"
+                "signal": "BUY/SELL/HOLD/WAIT",
+                "confidence": 0.75,
+                "reason": "Alasan dengan konfirmasi indikator"
+            }},
+            "entry_confirmation": {{
+                "candlestick_pattern": "Hammer/Engulfing/Doji/None",
+                "volume_confirmation": true/false,
+                "momentum_confirmation": true/false,
+                "trend_alignment": true/false,
+                "ready_to_enter": true/false
             }},
             "entries": [
                 {{
                     "level": 50000.1234,
-                    "weight": 0.4,
+                    "weight": 0.6,
                     "risk_score": 2,
-                    "description": "Entry pertama pada support kuat"
-                }},
-                {{
-                    "level": 49500.5678,
-                    "weight": 0.4,
-                    "risk_score": 3,
-                    "description": "Entry kedua jika retest support"
-                }},
-                {{
-                    "level": 49000.9012,
-                    "weight": 0.2,
-                    "risk_score": 5,
-                    "description": "Entry agresif jika breakdown"
+                    "distance_from_current": "0.8%",
+                    "description": "Entry MAKSIMAL 1-2 entry saja, fokus kualitas"
                 }}
             ],
             "take_profits": [
                 {{
                     "level": 51000.3456,
-                    "reward_ratio": 1.5,
+                    "reward_ratio": 2.0,
                     "percentage_gain": 2.0,
-                    "description": "TP1 - Resistance minor"
+                    "description": "TP1 - Conservative target"
                 }},
                 {{
                     "level": 52000.7890,
-                    "reward_ratio": 2.0,
-                    "percentage_gain": 4.0,
-                    "description": "TP2 - Resistance utama"
-                }},
-                {{
-                    "level": 53000.1234,
                     "reward_ratio": 3.0,
-                    "percentage_gain": 6.0,
-                    "description": "TP3 - Target Fibonacci"
+                    "percentage_gain": 4.0,
+                    "description": "TP2 - Aggressive target"
                 }}
             ],
             "stop_loss": {{
                 "level": 48500.0000,
-                "reason": "Di bawah support kunci"
+                "percentage": "1.5%",
+                "reason": "Support invalidation dengan buffer"
             }},
-            "position_size": 0.05,
-            "risk_per_trade": 0.02,
-            "max_drawdown": 0.1,
-            "support_levels": [50000.1234, 49500.5678, 49000.9012],
-            "resistance_levels": [51000.3456, 52000.7890, 53000.1234],
+            "invalidation_triggers": [
+                "Close candle below entry -0.5%",
+                "Volume drops below average",
+                "BTC drops >3% while in position"
+            ],
+            "position_size": 0.03,
+            "risk_per_trade": 0.015,
             "risk_reward_ratio": 2.5,
-            "probability_of_success": 0.65,
-            "expected_return": 0.04,
-            "market_conditions": "Kondisi pasar saat ini...",
+            "probability_of_success": 0.70,
+            "expected_return": 0.03,
+            "market_conditions": "Asumsikan volatilitas sedang",
+            "confluence_factors": [
+                "RSI oversold + divergence",
+                "Support level tested 2x",
+                "Volume spike pada rejection"
+            ],
             "notes": [
-                "Monitor volume breakout",
-                "Perhatikan news FOMC besok",
-                "BTC dominance sedang naik"
+                "TUNGGU konfirmasi candle close",
+                "Masuk gradual, bukan all-in",
+                "SL wajib, jangan diubah"
             ],
             "warnings": [
-                "Hindari trade jika volume rendah",
-                "SL wajib dipasang"
+                "HINDARI entry jika candle belum close",
+                "PATIENCE - tunggu konfirmasi penuh",
+                "NO FOMO - skip jika terlewat"
             ]
         }}
 
-        INSTRUKSI SPESIFIK:
-        1. Tentukan DIRECTION: LONG (BUY) atau SHORT (SELL) berdasarkan analisis teknikal
-        2. Jika signal = BUY/LONG:
-           - Entry levels harus DI BAWAH current price (buy saat dip)
-           - Take profit levels harus DI ATAS entry (jual saat profit)
-           - Stop loss harus DI BAWAH entry
-        3. Jika signal = SELL/SHORT:
-           - Entry levels harus DI ATAS current price (short saat mahal)
-           - Take profit levels harus DI BAWAH entry (buyback saat profit)
-           - Stop loss harus DI ATAS entry
-        4. Berikan 2-3 ENTRY POINT dengan weighting yang jelas
-        5. Berikan 3 TAKE PROFIT LEVEL dengan Risk/Reward ratio
-        6. Tentukan STOP LOSS yang jelas dengan alasan
-        7. Hitung Risk/Reward Ratio minimal 1:1.5
-        8. Berikan probability of success berdasarkan data
-        9. Sertakan analisis kondisi pasar
-        10. Berikan catatan dan peringatan penting
+        ⚠️ CRITICAL RULES (WAJIB):
+        1. MAKSIMAL 1-2 ENTRY ONLY (Quality over quantity)
+        2. Entry harus ada MINIMAL 2 confirmations:
+           - Candlestick pattern (hammer, engulfing, doji)
+           - Volume spike (>1.5x average)
+           - Indicator alignment (RSI + MACD)
+        3. Risk/Reward minimal 1:2
+        4. Entry tidak boleh >1.5% dari current price
+        5. Stop loss maximal 1.5% from entry
+        6. Jika tidak ada confluence yang jelas -> RETURN HOLD
+        7. Jika market choppy (ADX<20) -> RETURN HOLD
+        8. Jika volume rendah -> RETURN HOLD
 
-        ⚠️ PENTING - DIRECTION & POSITION:
-        - Signal BUY = Long position (expecting price to go UP)
-          * Entry: Buy at lower prices
-          * TP: Sell at higher prices
-          * SL: Below entry
-
-        - Signal SELL = Short position (expecting price to go DOWN)
-          * Entry: Short/sell at higher prices
-          * TP: Buy back at lower prices
-          * SL: Above entry
-
-        ⚠️ PENTING - PRECISION REQUIREMENT:
-        - Gunakan minimal 4-6 angka di belakang koma untuk semua level harga
-        - Contoh yang BENAR: 1.6425, 1.5987, 1.5532
-        - Contoh yang SALAH: 1.64, 1.60, 1.55
-        - Ini sangat penting untuk akurasi trading plan
-
-        CONTEMPLATE CONTOH TRADING PLAN:
-
-        📌 CONTOH 1: LONG POSITION (BUY Signal)
+        📌 CONTOH 1: HIGH QUALITY LONG SETUP
         {{
             "trend": "BULLISH",
+            "quality_score": {{"overall": 8.0, "confluence_count": 3}},
             "overall_signal": {{
                 "signal": "BUY",
-                "confidence": 0.85,
-                "reason": "Strong bounce dari support, RSI oversold"
+                "confidence": 0.80,
+                "reason": "3 confluence: Support tested 2x + Hammer candle + RSI oversold bounce"
+            }},
+            "entry_confirmation": {{
+                "candlestick_pattern": "Hammer",
+                "volume_confirmation": true,
+                "momentum_confirmation": true,
+                "ready_to_enter": true
             }},
             "entries": [
-                {{"level": 98000.5000, "weight": 0.5, "description": "Entry utama di support"}},
-                {{"level": 97500.2500, "weight": 0.3, "description": "Entry tambahan jika dip"}}
+                {{"level": 98000.5000, "weight": 1.0, "distance": "0.6%"}}
             ],
             "take_profits": [
-                {{"level": 99000.0000, "reward_ratio": 1.5, "description": "TP1 - Resistance minor"}},
-                {{"level": 100000.0000, "reward_ratio": 2.5, "description": "TP2 - Resistance utama"}}
+                {{"level": 99500.0000, "reward_ratio": 2.0}},
+                {{"level": 101000.0000, "reward_ratio": 3.0}}
             ],
-            "stop_loss": {{
-                "level": 97000.0000,
-                "reason": "Di bawah support kunci"
-            }}
+            "stop_loss": {{"level": 97200.0000, "percentage": "0.8%"}},
+            "risk_reward_ratio": 2.5,
+            "probability_of_success": 0.75,
+            "confluence_factors": [
+                "Support level tested twice",
+                "Hammer rejection candle",
+                "RSI bounced from oversold",
+                "Volume above average"
+            ]
         }}
 
-        📌 CONTOH 2: SHORT POSITION (SELL Signal)
+        📌 CONTOH 2: LOW QUALITY - RETURN HOLD
         {{
-            "trend": "BEARISH",
+            "trend": "SIDEWAYS",
+            "quality_score": {{"overall": 4.0, "confluence_count": 1}},
             "overall_signal": {{
-                "signal": "SELL",
-                "confidence": 0.75,
-                "reason": "Rejection di resistance, RSI overbought, bearish divergence"
+                "signal": "HOLD",
+                "confidence": 0.40,
+                "reason": "Choppy market, ADX 18, no clear confluence, low volume"
             }},
-            "entries": [
-                {{"level": 99500.0000, "weight": 0.5, "description": "Short di resistance kuat"}},
-                {{"level": 100000.0000, "weight": 0.3, "description": "Short tambahan jika pump"}}
-            ],
-            "take_profits": [
-                {{"level": 98500.0000, "reward_ratio": 1.5, "description": "TP1 - Support minor"}},
-                {{"level": 97500.0000, "reward_ratio": 2.5, "description": "TP2 - Support utama"}}
-            ],
-            "stop_loss": {{
-                "level": 100500.0000,
-                "reason": "Di atas resistance, breakdown confirmation"
-            }}
+            "notes": ["Wait for better setup", "Market tidak menarik untuk trade"]
         }}
 
         Risk Profile: {request.risk_profile.upper()}
+
+        SEKARANG TUGAS ANDA:
+        1. CEK semua quality filters di atas
+        2. Jika tidak memenuhi minimal 2 confluence -> RETURN HOLD
+        3. Jika memenuhi, buat plan dengan MAKSIMAL 2 ENTRY
+        4. Fokus pada KUALITAS, bukan kuantitas
 
         RESPOND HANYA DENGAN JSON, TANPA TEKS LAINNYA.
         """
