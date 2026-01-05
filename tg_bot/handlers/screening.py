@@ -76,8 +76,8 @@ async def screen_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         results = await screener.screen_market(
             timeframe=timeframe,
             limit=limit,
-            min_score=7.0,
-            max_results=20
+            min_score=5.0,  # Lebih longgar - 5.0+ sudah cukup menarik
+            max_results=30  # Tampilkan lebih banyak results
         )
 
         # Get summary

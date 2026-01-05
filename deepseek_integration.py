@@ -869,7 +869,7 @@ async def generate_quick_screening(
     try:
         # Create simple screening prompt
         prompt = f"""
-        Anda adalah MARKET SCREENER untuk cryptocurrency.
+        Anda adalah LENIENT MARKET SCREENER untuk cryptocurrency.
 
         Buat QUICK SCREENING untuk {symbol} pada timeframe {timeframe}.
 
@@ -884,22 +884,29 @@ async def generate_quick_screening(
 
         BERIKAN SCORE DALAM FORMAT JSON:
         {{
-            "score": 8.5,
+            "score": 6.0,
             "trend": "BULLISH",
             "signals": [
-                "Strong uptrend with HH/HL",
-                "EMA 20/50/200 bullish alignment",
-                "RSI showing momentum"
+                "Price near EMA 20 support",
+                "Momentum building up",
+                "Good volume presence"
             ],
-            "analysis": "Strong setup with retest opportunity at support"
+            "analysis": "Decent setup, worth monitoring for potential entry"
         }}
 
-        SCORING CRITERIA (0-10):
-        - Trend Structure (BOS, HH/HL): 3 points
-        - EMA Alignment: 2 points
-        - Momentum (RSI, MACD): 2 points
-        - Volume confluence: 2 points
-        - Support/Resistance levels: 1 point
+        SCORING CRITERIA (LEBIH LONGGAR - 0-10):
+        - Trend Direction (bukan harus strong, cukup ada arah): 2 points
+        - EMA Position (harga dekat atau di atas EMA short-term): 2 points
+        - Basic Momentum (RSI tidak extreme <30 atau >70): 2 points
+        - Volume presence (ada aktivitas trading): 2 points
+        - Price action (ada pembentukan level interesting): 2 points
+
+        CATATAN PENTING:
+        - Screening ini LEBIH LONGGAR dari trading plan AI
+        - Tidak harus perfect setup, cukup "menarik untuk di-review"
+        - Score 5.0+ sudah cukup untuk di-include dalam hasil screening
+        - Fokus: temukan POTENTIAL coins, bukan CONFIRMED setups
+        - Lebih baik banyak coin medium quality daripada sedikit coin perfect
 
         RESPOND HANYA DENGAN JSON, TANPA TEKS LAINNYA.
         """

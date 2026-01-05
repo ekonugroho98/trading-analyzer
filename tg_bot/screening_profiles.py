@@ -11,20 +11,20 @@ import pytz
 SCREENING_PROFILES = {
     'conservative': {
         'name': 'Conservative',
-        'description': 'Safe approach, strict criteria, less frequent',
+        'description': 'Safe approach, but still lenient screening',
         'timeframe': '4h',
         'interval_minutes': 360,  # 6 hours
-        'min_score': 8.0,
-        'max_results': 10,
+        'min_score': 6.0,  # Lebih longgar untuk dapat lebih banyak candidates
+        'max_results': 15,
         'suitable_for': 'Swing traders, risk-averse traders'
     },
     'moderate': {
         'name': 'Moderate',
-        'description': 'Balanced approach, standard criteria',
+        'description': 'Balanced approach, standard screening',
         'timeframe': '4h',
         'interval_minutes': 120,  # 2 hours
-        'min_score': 7.0,
-        'max_results': 15,
+        'min_score': 5.5,  # Longgar - fokus potential, bukan perfect
+        'max_results': 20,
         'suitable_for': 'Day traders, swing traders'
     },
     'aggressive': {
@@ -32,8 +32,8 @@ SCREENING_PROFILES = {
         'description': 'Active trading, more opportunities',
         'timeframe': '1h',
         'interval_minutes': 30,  # 30 minutes
-        'min_score': 6.5,
-        'max_results': 20,
+        'min_score': 5.0,  # Paling longgar - banyak candidates
+        'max_results': 30,
         'suitable_for': 'Scalpers, active day traders'
     },
     'scalper': {
@@ -41,8 +41,8 @@ SCREENING_PROFILES = {
         'description': 'High frequency, quick moves',
         'timeframe': '1h',
         'interval_minutes': 15,  # 15 minutes
-        'min_score': 6.0,
-        'max_results': 25,
+        'min_score': 4.5,  # Sangat longgar - semua interesting coins
+        'max_results': 40,
         'suitable_for': 'Scalpers, very active traders'
     }
 }
