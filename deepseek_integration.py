@@ -527,9 +527,18 @@ class TradingPlanGenerator:
         if entries:
             # Pilih entry dengan weight tertinggi
             primary_entry = max(entries, key=lambda x: x.weight).level
-        
+
         # Get current price from latest candle
         current_price = float(df['close'].iloc[-1])
+
+        # Safely extract stop_loss data
+        stop_loss_data = plan_data.get('stop_loss')
+        if isinstance(stop_loss_data, dict):
+            stop_loss = stop_loss_data.get('level', 0.0)
+            stop_loss_reason = stop_loss_data.get('reason', '')
+        else:
+            stop_loss = 0.0
+            stop_loss_reason = ''
 
         # Create trading plan
         plan = TradingPlan(
@@ -542,8 +551,8 @@ class TradingPlanGenerator:
             entries=entries,
             primary_entry=primary_entry,
             take_profits=take_profits,
-            stop_loss=plan_data.get('stop_loss', {}).get('level', 0.0),
-            stop_loss_reason=plan_data.get('stop_loss', {}).get('reason', ''),
+            stop_loss=stop_loss,
+            stop_loss_reason=stop_loss_reason,
             position_size=plan_data.get('position_size', 0.02),
             risk_per_trade=plan_data.get('risk_per_trade', 0.02),
             max_drawdown=plan_data.get('max_drawdown', 0.1),
@@ -559,7 +568,7 @@ class TradingPlanGenerator:
             warnings=plan_data.get('warnings', []),
             raw_analysis=""
         )
-        
+
         return plan
     
     def _create_minimal_plan(self, request: AnalysisRequest, error_msg: str) -> TradingPlan:
