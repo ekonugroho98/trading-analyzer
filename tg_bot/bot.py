@@ -61,13 +61,31 @@ class TelegramTradingBot:
         app.add_handler(CommandHandler("signals", handlers.trading.signals_command))
         app.add_handler(CommandHandler("trending", handlers.trading.trending_command))
 
-        # Portfolio commands
+        # Portfolio commands (admin only)
         from tg_bot.handlers.portfolio import PortfolioHandler
+        from tg_bot.permissions import require_admin
         portfolio_handler = PortfolioHandler()
-        app.add_handler(CommandHandler("myportfolio", portfolio_handler.my_portfolio))
-        app.add_handler(CommandHandler("addposition", portfolio_handler.add_position))
-        app.add_handler(CommandHandler("closeposition", portfolio_handler.close_position))
-        app.add_handler(CommandHandler("deleteposition", portfolio_handler.delete_position))
+
+        @require_admin
+        async def myportfolio_wrapper(update, context):
+            return await portfolio_handler.my_portfolio(update, context)
+
+        @require_admin
+        async def addposition_wrapper(update, context):
+            return await portfolio_handler.add_position(update, context)
+
+        @require_admin
+        async def closeposition_wrapper(update, context):
+            return await portfolio_handler.close_position(update, context)
+
+        @require_admin
+        async def deleteposition_wrapper(update, context):
+            return await portfolio_handler.delete_position(update, context)
+
+        app.add_handler(CommandHandler("myportfolio", myportfolio_wrapper))
+        app.add_handler(CommandHandler("addposition", addposition_wrapper))
+        app.add_handler(CommandHandler("closeposition", closeposition_wrapper))
+        app.add_handler(CommandHandler("deleteposition", deleteposition_wrapper))
 
         # Paper trading commands (NEW)
         from tg_bot.handlers.paper_trading import (

@@ -10,6 +10,7 @@ from telegram.ext import ContextTypes
 
 from tg_bot.market_screener import get_screener
 from tg_bot.database import db
+from tg_bot.permissions import require_admin
 from tg_bot.formatter import (
     format_screening_loading,
     format_screening_results,
@@ -145,6 +146,7 @@ Sent {actionable_count} actionable signals
     )
 
 
+@require_admin
 async def screen_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Screen market for good trading setups"""
     if not update.effective_message or not update.effective_chat:
@@ -251,6 +253,7 @@ async def screener_help_command(update: Update, context: ContextTypes.DEFAULT_TY
     )
 
 
+@require_admin
 async def screen_auto_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Screen market and auto-generate trading plans for actionable signals"""
     if not update.effective_message or not update.effective_chat:
@@ -351,6 +354,7 @@ async def screen_auto_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
 
 
+@require_admin
 async def schedule_screen_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Schedule periodic market screening"""
     if not update.effective_message or not update.effective_chat:
@@ -417,6 +421,7 @@ async def schedule_screen_command(update: Update, context: ContextTypes.DEFAULT_
         await update.effective_message.reply_text("❌ Failed to schedule screening")
 
 
+@require_admin
 async def unschedule_screen_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Remove scheduled screening"""
     if not update.effective_message or not update.effective_chat:
@@ -454,6 +459,7 @@ async def unschedule_screen_command(update: Update, context: ContextTypes.DEFAUL
         )
 
 
+@require_admin
 async def my_schedules_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show your screening schedules"""
     if not update.effective_message or not update.effective_chat:
@@ -504,27 +510,32 @@ async def my_schedules_command(update: Update, context: ContextTypes.DEFAULT_TYP
     await update.effective_message.reply_text(message, parse_mode='Markdown')
 
 
-# Profile commands
+# Profile commands (all admin-only)
+@require_admin
 async def profile_conservative_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Set conservative screening profile"""
     await _apply_profile(update, 'conservative')
 
 
+@require_admin
 async def profile_moderate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Set moderate screening profile"""
     await _apply_profile(update, 'moderate')
 
 
+@require_admin
 async def profile_aggressive_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Set aggressive screening profile"""
     await _apply_profile(update, 'aggressive')
 
 
+@require_admin
 async def profile_scalper_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Set scalper screening profile"""
     await _apply_profile(update, 'scalper')
 
 
+@require_admin
 async def profiles_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show all available screening profiles"""
     if not update.effective_message:
@@ -536,6 +547,7 @@ async def profiles_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+@require_admin
 async def profile_info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show detailed info about a specific profile"""
     if not update.effective_message:

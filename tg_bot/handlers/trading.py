@@ -11,12 +11,14 @@ from telegram.ext import ContextTypes
 
 from tg_bot.database import db
 from tg_bot.formatter import TelegramFormatter
+from tg_bot.permissions import require_feature
 from deepseek_integration import TradingPlanGenerator, AnalysisRequest
 from collector import CryptoDataCollector
 
 logger = logging.getLogger(__name__)
 
 
+@require_feature('price')
 async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /price command"""
     try:
@@ -112,6 +114,7 @@ async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+@require_feature('plan')
 async def plan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /plan command - Generate AI trading plan"""
     try:
@@ -225,6 +228,7 @@ async def plan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+@require_feature('analyze')
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /analyze command - Quick technical analysis"""
     try:
@@ -341,6 +345,7 @@ Use /ta {symbol} for detailed technical analysis! {TelegramFormatter.EMOJI['robo
         )
 
 
+@require_feature('ta')
 async def ta_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /ta command - Comprehensive technical analysis"""
     try:
@@ -552,6 +557,7 @@ Use /plan {symbol} for AI trading plan! {TelegramFormatter.EMOJI['robot']}
         )
 
 
+@require_feature('signals')
 async def signals_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /signals command - Get signals for subscriptions"""
     try:
@@ -614,6 +620,7 @@ async def signals_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+@require_feature('subscribe')
 async def subscribeall_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /subscribeall command - Subscribe to all major pairs"""
     try:
@@ -640,6 +647,7 @@ async def subscribeall_command(update: Update, context: ContextTypes.DEFAULT_TYP
         )
 
 
+@require_feature('trending')
 async def trending_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /trending command - Show trending coins from Binance Futures"""
     try:

@@ -9,6 +9,7 @@ from telegram.ext import ContextTypes
 
 from tg_bot.database import db
 from tg_bot.formatter import TelegramFormatter
+from tg_bot.permissions import require_feature
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+@require_feature('subscribe')
 async def subscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /subscribe command"""
     try:
@@ -139,6 +141,7 @@ async def subscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+@require_feature('subscribe')
 async def unsubscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /unsubscribe command"""
     try:
@@ -172,6 +175,7 @@ async def unsubscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
 
 
+@require_feature('subscribe')
 async def mysubscriptions_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /mysubscriptions command"""
     try:
@@ -193,6 +197,7 @@ async def mysubscriptions_command(update: Update, context: ContextTypes.DEFAULT_
         )
 
 
+@require_feature('list_alerts')
 async def myalerts_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /myalerts command"""
     try:
@@ -214,6 +219,7 @@ async def myalerts_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+@require_feature('add_alert')
 async def setalert_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /setalert command"""
     try:
