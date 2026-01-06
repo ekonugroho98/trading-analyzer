@@ -375,7 +375,7 @@ class TradingPlanGenerator:
         }}
 
         📌 CONTOH 2: HIGH QUALITY SHORT SETUP
-        {# Asumsikan current price = $93,500, resistance dekat $94,000 #}
+        {{# Asumsikan current price = $93,500, resistance dekat $94,000 #}}
         {{
             "trend": "BEARISH",
             "quality_score": {{"overall": 8.5, "confluence_count": 3}},
@@ -391,16 +391,14 @@ class TradingPlanGenerator:
                 "ready_to_enter": true
             }},
             "entries": [
-                {# Entry DI ATAS current price, dekat resistance #}
                 {{"level": 94000.0000, "weight": 0.7, "distance": "0.5%"}},
                 {{"level": 93850.0000, "weight": 0.3, "distance": "0.4%"}}
             ],
             "take_profits": [
-                {# TP DI BAWAH entry price - profit dari turun #}
                 {{"level": 92800.0000, "reward_ratio": 2.0}},
                 {{"level": 91800.0000, "reward_ratio": 3.5}}
             ],
-            "stop_loss": {{"level": 94800.0000, "percentage": "1.0%"}}, {# SL DI ATAS entry #}
+            "stop_loss": {{"level": 94800.0000, "percentage": "1.0%"}},
             "risk_reward_ratio": 2.0,
             "probability_of_success": 0.70,
             "confluence_factors": [
@@ -555,10 +553,10 @@ class TradingPlanGenerator:
             '1m': [],
             '5m': ['1m'],
             '15m': ['5m', '1m'],
-            '1h': ['15m', '5m'],
-            '2h': ['15m', '1h', '5m'],
-            '4h': ['1h', '15m', '5m'],
-            '1d': ['4h', '1h', '15m']
+            '1h': ['30m', '15m'],
+            '2h': ['1h', '30m', '15m'],
+            '4h': ['1h', '30m'],
+            '1d': ['4h', '1h', '30m']
         }
 
         additional_timeframes = timeframe_map.get(request.timeframe, [])
