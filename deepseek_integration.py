@@ -216,6 +216,13 @@ class TradingPlanGenerator:
 
         BUATKAN CONSERVATIVE TRADING PLAN untuk {request.symbol} pada timeframe {request.timeframe}.
 
+        ⚠️ ATURAN LOGIKA ENTRY (WAJIB DIPAHAMI):
+        • LONG/BUY: Entry di BAWAH atau DEKAT current price (tunggu pullback ke support)
+        • SHORT/SELL: Entry di ATAS atau DEKAT current price (tunggu retrace/naik ke resistance untuk short)
+        • Entry TIDAK BOLEH lebih dari 1.5% dari current price
+        • Untuk SHORT: Current Price < Entry < Stop Loss, Take Profit < Entry (profit dari turun)
+        • Untuk LONG: Take Profit > Entry > Stop Loss (profit dari naik)
+
         DATA TEKNIKAL SAAT INI:
         - Current Price: {price_format}
         - 24h High: ${high_24h:.{price_precision}f}
@@ -367,7 +374,44 @@ class TradingPlanGenerator:
             ]
         }}
 
-        📌 CONTOH 2: LOW QUALITY - RETURN HOLD
+        📌 CONTOH 2: HIGH QUALITY SHORT SETUP
+        {# Asumsikan current price = $93,500, resistance dekat $94,000 #}
+        {{
+            "trend": "BEARISH",
+            "quality_score": {{"overall": 8.5, "confluence_count": 3}},
+            "overall_signal": {{
+                "signal": "SELL",
+                "confidence": 0.75,
+                "reason": "3 confluence: Resistance tested 2x + Shooting Star candle + RSI overbought rejection"
+            }},
+            "entry_confirmation": {{
+                "candlestick_pattern": "Shooting Star",
+                "volume_confirmation": true,
+                "momentum_confirmation": true,
+                "ready_to_enter": true
+            }},
+            "entries": [
+                {# Entry DI ATAS current price, dekat resistance #}
+                {{"level": 94000.0000, "weight": 0.7, "distance": "0.5%"}},
+                {{"level": 93850.0000, "weight": 0.3, "distance": "0.4%"}}
+            ],
+            "take_profits": [
+                {# TP DI BAWAH entry price - profit dari turun #}
+                {{"level": 92800.0000, "reward_ratio": 2.0}},
+                {{"level": 91800.0000, "reward_ratio": 3.5}}
+            ],
+            "stop_loss": {{"level": 94800.0000, "percentage": "1.0%"}}, {# SL DI ATAS entry #}
+            "risk_reward_ratio": 2.0,
+            "probability_of_success": 0.70,
+            "confluence_factors": [
+                "Resistance level tested twice",
+                "Shooting Star rejection candle",
+                "RSI rejected from overbought",
+                "Volume above average"
+            ]
+        }}
+
+        📌 CONTOH 3: LOW QUALITY - RETURN HOLD
         {{
             "trend": "SIDEWAYS",
             "quality_score": {{"overall": 4.0, "confluence_count": 1}},
@@ -378,6 +422,13 @@ class TradingPlanGenerator:
             }},
             "notes": ["Wait for better setup", "Market tidak menarik untuk trade"]
         }}
+
+        ⚠️ CRITICAL SHORT ENTRY RULES:
+        - Untuk SELL/SHORT signal: Entry level harus DI ATAS current price (tunggu retrace ke resistance)
+        - Contoh: Current price $93,800 → Entry di $94,000 atau $94,200 (di atas current price!)
+        - Logika: Kita tunggu harga naik sedikit ke level resistance untuk entry short dengan harga lebih baik
+        - Take Profit harus DI BAWAH entry price (untuk profit dari harga turun)
+        - Stop Loss harus DI ATAS entry price (untuk proteksi jika harga naik terus)
 
         Risk Profile: {request.risk_profile.upper()}
 
