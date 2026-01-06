@@ -625,6 +625,97 @@ This may take 2-5 minutes. Please wait...
 """
 
 
+def format_multi_tf_screening_results(results: Dict) -> str:
+    """Format multi-timeframe screening results
+
+    Args:
+        results: Dict with primary_results, secondary_results, multi_tf_signals, summary
+
+    Returns:
+        Formatted message
+    """
+    summary = results.get('summary', {})
+    multi_tf_signals = results.get('multi_tf_signals', [])
+    primary_results = results.get('primary_results', [])
+    secondary_results = results.get('secondary_results', {})
+
+    # Check if error
+    if 'error' in summary:
+        return f"""{TelegramFormatter.EMOJI['cross']} *Screening Error*
+
+{summary['error']}
+"""
+
+    # Build message
+    message = f"""{TelegramFormatter.EMOJI['chart']} *Multi-Timeframe Screening Results*
+
+📊 *Summary*
+• Symbols Screened: {summary.get('total_symbols_screened', 0)}
+• Primary TF ({summary.get('primary_tf', 'N/A').upper()}): {summary.get('primary_passed', 0)} passed
+"""
+
+    # Add secondary TF stats
+    for tf, count in summary.get('secondary_passed', {}).items():
+        message += f"• {tf.upper()}: {count} passed\n"
+
+    message += f"• 🔥 Multi-TF Confluences: *{summary.get('multi_tf_confluences', 0)}*\n\n"
+
+    # Show multi-TF confluences (best signals!)
+    if multi_tf_signals:
+        message += f"{TelegramFormatter.EMOJI['fire']} *Multi-Timeframe Confluences* ⭐\n"
+        message += "_(Passed on Primary AND Secondary TFs)_\n\n"
+
+        for i, signal in enumerate(multi_tf_signals[:15], 1):
+            symbol = signal['symbol']
+            avg_score = signal['avg_score']
+            primary_score = signal['primary_score']
+            secondary_tf = signal['secondary_tf'].upper()
+            secondary_score = signal['secondary_score']
+            trend = signal['trend']
+            price = signal['current_price']
+            change_24h = signal['change_24h']
+
+            trend_emoji = {'BULLISH': '📈', 'BEARISH': '📉', 'NEUTRAL': '➡️'}.get(trend, '📊')
+
+            message += (
+                f"*{i}. {symbol}*\n"
+                f"  {trend_emoji} {trend} | ${price:,.2f} ({change_24h:+.2f}%)\n"
+                f"  📊 Avg Score: *{avg_score:.1f}*/10\n"
+                f"  └ {signal['primary_tf'].upper()}: {primary_score:.1f} | {secondary_tf}: {secondary_score:.1f}\n"
+                f"  └ Signals: {', '.join(signal['signals'][:3])}\n\n"
+            )
+
+        if len(multi_tf_signals) > 15:
+            message += f"_... and {len(multi_tf_signals) - 15} more_\n\n"
+
+    # Show primary-only results (if no multi-TF or for additional signals)
+    if primary_results and len(multi_tf_signals) < 20:
+        message += f"\n{TelegramFormatter.EMOJI['info']} *Primary Timeframe Results*\n"
+        message += f"_(Passed on {summary.get('primary_tf', 'N/A').upper()} only)_\n\n"
+
+        shown_symbols = set(s['symbol'] for s in multi_tf_signals)
+        primary_only = [r for r in primary_results if r.symbol not in shown_symbols][:10]
+
+        for result in primary_only:
+            trend_emoji = {'BULLISH': '📈', 'BEARISH': '📉', 'NEUTRAL': '➡️'}.get(result.trend, '📊')
+            message += (
+                f"*{result.symbol}*\n"
+                f"  {trend_emoji} {result.trend} | ${result.current_price:,.2f} ({result.change_24h:+.2f}%)\n"
+                f"  📊 Score: *{result.score:.1f}*/10\n"
+                f"  └ {', '.join(result.signals[:3])}\n\n"
+            )
+
+        if len(primary_results) - len(shown_symbols) > 10:
+            remaining = len(primary_results) - len(shown_symbols) - 10
+            message += f"_... and {remaining} more_\n\n"
+
+    if not multi_tf_signals and not primary_results:
+        message += "❌ No coins passed the screening criteria.\n\n"
+        message += "Tip: Try a different timeframe or lower the score threshold."
+
+    return message
+
+
 def format_screening_error(error: str) -> str:
     """Format screening error message"""
     return f"""{TelegramFormatter.EMOJI['cross']} *Screening Error*

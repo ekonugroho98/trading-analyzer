@@ -14,6 +14,7 @@ from tg_bot.permissions import require_admin
 from tg_bot.formatter import (
     format_screening_loading,
     format_screening_results,
+    format_multi_tf_screening_results,
     format_screening_error,
     format_screener_help,
     TelegramFormatter
@@ -148,28 +149,52 @@ Sent {actionable_count} actionable signals
 
 @require_admin
 async def screen_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Screen market for good trading setups"""
+    """Screen market for good trading setups using multi-timeframe analysis"""
     if not update.effective_message or not update.effective_chat:
         return
 
     # Parse arguments
-    timeframe = '4h'  # default
+    primary_tf = '1d'  # Default: 1D primary timeframe
     limit = 100  # default
+    use_multi_tf = True  # Default: use multi-timeframe analysis
 
     if context.args:
         if len(context.args) >= 1:
-            timeframe = context.args[0].lower()
+            # Check if user wants single timeframe mode
+            if context.args[0].lower() in ['--single', '-s']:
+                use_multi_tf = False
+                if len(context.args) >= 2:
+                    primary_tf = context.args[1].lower()
+            else:
+                primary_tf = context.args[0].lower()
+
             # Validate timeframe
-            if timeframe not in ['1h', '4h']:
+            valid_tfs = ['1h', '2h', '4h', '1d']
+            if primary_tf not in valid_tfs:
                 await update.effective_message.reply_text(
-                    f"❌ Invalid timeframe: {timeframe}\n\n"
-                    f"Use 1h or 4h"
+                    f"❌ Invalid timeframe: {primary_tf}\n\n"
+                    f"Valid timeframes: {', '.join(valid_tfs)}\n\n"
+                    f"Usage:\n"
+                    f"  /screen [timeframe] [limit]  - Multi-TF analysis (default)\n"
+                    f"  /screen --single [tf] [limit] - Single timeframe mode"
                 )
                 return
 
         if len(context.args) >= 2:
+            # Check if second arg is limit or timeframe (in --single mode)
             try:
-                limit = int(context.args[1])
+                # If in single mode, second arg might be timeframe
+                if not use_multi_tf and len(context.args) >= 2:
+                    arg2 = context.args[1].lower()
+                    if arg2 in valid_tfs:
+                        primary_tf = arg2
+                        if len(context.args) >= 3:
+                            limit = int(context.args[2])
+                    else:
+                        limit = int(context.args[1])
+                else:
+                    limit = int(context.args[1])
+
                 if limit < 10 or limit > 500:
                     await update.effective_message.reply_text(
                         f"❌ Invalid limit: {limit}\n\n"
@@ -178,14 +203,19 @@ async def screen_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     return
             except ValueError:
                 await update.effective_message.reply_text(
-                    f"❌ Invalid limit: {context.args[1]}\n\n"
-                    f"Limit must be a number"
+                    f"❌ Invalid limit format\n\n"
+                    f"Usage: /screen [timeframe] [limit]"
                 )
                 return
 
     # Send loading message
+    mode_text = "Multi-Timeframe" if use_multi_tf else "Single Timeframe"
     loading_msg = await update.effective_message.reply_text(
-        format_screening_loading(timeframe, limit),
+        f"🔍 *Screening Market*\n\n"
+        f"Mode: {mode_text}\n"
+        f"Primary Timeframe: {primary_tf.upper()}\n"
+        f"Symbols: {limit}\n\n"
+        f"This may take a moment...",
         parse_mode='Markdown'
     )
 
@@ -193,38 +223,56 @@ async def screen_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Get screener instance
         screener = get_screener()
 
-        # Run screening
-        logger.info(f"Starting market screening: {timeframe} timeframe, {limit} coins")
+        if use_multi_tf:
+            # Multi-timeframe analysis: Primary TF + 4H + 2H
+            logger.info(f"Starting multi-TF screening: {primary_tf} primary, 4H+2H secondary, {limit} coins")
 
-        results = await screener.screen_market(
-            timeframe=timeframe,
-            limit=limit,
-            min_score=5.0,  # Lebih longgar - 5.0+ sudah cukup menarik
-            max_results=30  # Tampilkan lebih banyak results
-        )
+            results = await screener.screen_market_multi_tf(
+                primary_tf=primary_tf,
+                secondary_tfs=['4h', '2h'],
+                limit=limit,
+                min_score=5.0,
+                max_results=30
+            )
 
-        # Get summary
-        summary = await screener.get_screening_summary(results, timeframe)
+            # Delete loading message
+            await loading_msg.delete()
 
-        # Delete loading message
-        await loading_msg.delete()
+            # Send multi-TF results
+            result_msg = format_multi_tf_screening_results(results)
+            await update.effective_message.reply_text(
+                result_msg,
+                parse_mode='Markdown'
+            )
 
-        # Send results
-        if results:
+            multi_tf_count = len(results.get('multi_tf_signals', []))
+            logger.info(f"Multi-TF screening complete: {multi_tf_count} confluences found")
+
+        else:
+            # Single timeframe mode (original behavior)
+            logger.info(f"Starting single-TF screening: {primary_tf} timeframe, {limit} coins")
+
+            results = await screener.screen_market(
+                timeframe=primary_tf,
+                limit=limit,
+                min_score=5.0,
+                max_results=30
+            )
+
+            # Get summary
+            summary = await screener.get_screening_summary(results, primary_tf)
+
+            # Delete loading message
+            await loading_msg.delete()
+
+            # Send results
             result_msg = format_screening_results(results, summary)
             await update.effective_message.reply_text(
                 result_msg,
                 parse_mode='Markdown'
             )
 
-            logger.info(f"Screening complete: {len(results)} coins found")
-        else:
-            await update.effective_message.reply_text(
-                format_screening_results(results, summary),
-                parse_mode='Markdown'
-            )
-
-            logger.info("Screening complete: No coins passed")
+            logger.info(f"Single-TF screening complete: {len(results)} coins found")
 
     except Exception as e:
         logger.error(f"Error in screen_command: {e}", exc_info=True)

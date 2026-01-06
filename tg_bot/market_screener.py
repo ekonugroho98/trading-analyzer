@@ -217,6 +217,149 @@ class MarketScreener:
             'timestamp': datetime.now()
         }
 
+    async def screen_market_multi_tf(
+        self,
+        primary_tf: str = '1d',
+        secondary_tfs: List[str] = None,
+        limit: int = 100,
+        min_score: float = 5.0,
+        max_results: int = 20
+    ) -> Dict[str, Any]:
+        """Screen market using multi-timeframe analysis
+
+        Args:
+            primary_tf: Primary timeframe for analysis (default: 1d)
+            secondary_tfs: List of secondary timeframes (default: ['4h', '2h'])
+            limit: Number of symbols to screen
+            min_score: Minimum score to pass
+            max_results: Maximum results to return
+
+        Returns:
+            Dict with primary_results, secondary_results, and multi_tf_signals
+        """
+        if secondary_tfs is None:
+            secondary_tfs = ['4h', '2h']
+
+        try:
+            # Get symbols to screen
+            symbols = await self.get_top_symbols(limit)
+
+            if not symbols:
+                logger.error("No symbols to screen")
+                return {
+                    'primary_results': [],
+                    'secondary_results': {},
+                    'multi_tf_signals': [],
+                    'summary': {}
+                }
+
+            logger.info(
+                f"Multi-TF Screening: {len(symbols)} symbols | "
+                f"Primary: {primary_tf} | Secondary: {secondary_tfs}"
+            )
+
+            # Screen on primary timeframe
+            primary_results = await self.screen_market(
+                timeframe=primary_tf,
+                limit=limit,
+                min_score=min_score,
+                max_results=max_results
+            )
+
+            # Screen on secondary timeframes (only for coins that passed primary)
+            secondary_results = {}
+            multi_tf_signals = []
+
+            if primary_results:
+                # Get unique symbols from primary results
+                primary_symbols = [r.symbol for r in primary_results[:min(20, len(primary_results))]]
+
+                for sec_tf in secondary_tfs:
+                    logger.info(f"Screening {len(primary_symbols)} symbols on {sec_tf} timeframe...")
+
+                    sec_results = []
+                    batch_size = 10
+
+                    for i in range(0, len(primary_symbols), batch_size):
+                        batch = primary_symbols[i:i + batch_size]
+
+                        tasks = [
+                            self.screen_coin(symbol, sec_tf)
+                            for symbol in batch
+                        ]
+                        batch_results = await asyncio.gather(*tasks)
+
+                        for result in batch_results:
+                            if result and result.score >= min_score:
+                                sec_results.append(result)
+
+                        if i + batch_size < len(primary_symbols):
+                            await asyncio.sleep(0.5)
+
+                    # Sort by score
+                    sec_results.sort(key=lambda x: x.score, reverse=True)
+                    secondary_results[sec_tf] = sec_results[:max_results]
+
+                # Find multi-timeframe confluences
+                # Coins that scored well on primary AND at least one secondary TF
+                primary_symbol_scores = {r.symbol: r.score for r in primary_results}
+
+                for sec_tf, sec_res_list in secondary_results.items():
+                    for sec_res in sec_res_list:
+                        if sec_res.symbol in primary_symbol_scores:
+                            # This coin passed on both timeframes!
+                            primary_score = primary_symbol_scores[sec_res.symbol]
+                            avg_score = (primary_score + sec_res.score) / 2
+
+                            multi_tf_signals.append({
+                                'symbol': sec_res.symbol,
+                                'primary_tf': primary_tf,
+                                'primary_score': primary_score,
+                                'secondary_tf': sec_tf,
+                                'secondary_score': sec_res.score,
+                                'avg_score': avg_score,
+                                'trend': sec_res.trend,
+                                'signals': sec_res.signals,
+                                'current_price': sec_res.current_price,
+                                'change_24h': sec_res.change_24h
+                            })
+
+                # Sort multi-TF signals by average score
+                multi_tf_signals.sort(key=lambda x: x['avg_score'], reverse=True)
+
+            # Generate summary
+            summary = {
+                'total_symbols_screened': len(symbols),
+                'primary_tf': primary_tf,
+                'primary_passed': len(primary_results),
+                'secondary_tfs': secondary_tfs,
+                'secondary_passed': {tf: len(res) for tf, res in secondary_results.items()},
+                'multi_tf_confluences': len(multi_tf_signals),
+                'timestamp': datetime.now()
+            }
+
+            logger.info(
+                f"Multi-TF Screening Complete | "
+                f"Primary: {len(primary_results)} | "
+                f"Multi-TF: {len(multi_tf_signals)} confluences"
+            )
+
+            return {
+                'primary_results': primary_results,
+                'secondary_results': secondary_results,
+                'multi_tf_signals': multi_tf_signals,
+                'summary': summary
+            }
+
+        except Exception as e:
+            logger.error(f"Error in screen_market_multi_tf: {e}", exc_info=True)
+            return {
+                'primary_results': [],
+                'secondary_results': {},
+                'multi_tf_signals': [],
+                'summary': {'error': str(e)}
+            }
+
 
 # Global screener instance
 _screener_instance = None
