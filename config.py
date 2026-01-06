@@ -110,6 +110,181 @@ class Config:
             'temperature': 0.7,
             'timeout': 30,
         })()
+
+        # Set up FEATURE_ACCESS namespace for tier-based access control
+        self.FEATURE_ACCESS = {
+            # Basic features - available to all tiers
+            'price': {
+                'allowed_tiers': ['free', 'premium', 'admin'],
+                'description': 'Get current price information'
+            },
+            'help': {
+                'allowed_tiers': ['free', 'premium', 'admin'],
+                'description': 'Show help and available commands'
+            },
+            'start': {
+                'allowed_tiers': ['free', 'premium', 'admin'],
+                'description': 'Start the bot and register user'
+            },
+            'status': {
+                'allowed_tiers': ['free', 'premium', 'admin'],
+                'description': 'Check system status'
+            },
+            'settings': {
+                'allowed_tiers': ['free', 'premium', 'admin'],
+                'description': 'Manage user preferences'
+            },
+            'signals': {
+                'allowed_tiers': ['free', 'premium', 'admin'],
+                'description': 'View trading signals (limited for free users)'
+            },
+            'trending': {
+                'allowed_tiers': ['free', 'premium', 'admin'],
+                'description': 'View trending coins'
+            },
+
+            # Trading analysis features - premium and admin only
+            'analyze': {
+                'allowed_tiers': ['premium', 'admin'],
+                'description': 'Technical analysis with indicators'
+            },
+            'ta': {
+                'allowed_tiers': ['premium', 'admin'],
+                'description': 'Detailed technical analysis summary'
+            },
+            'plan': {
+                'allowed_tiers': ['premium', 'admin'],
+                'description': 'AI-powered trading plans'
+            },
+
+            # Market screening - admin only
+            'screen': {
+                'allowed_tiers': ['admin'],
+                'description': 'Market screening for opportunities'
+            },
+            'screen_auto': {
+                'allowed_tiers': ['admin'],
+                'description': 'Automated market screening'
+            },
+            'signal_history': {
+                'allowed_tiers': ['admin'],
+                'description': 'View signal performance history'
+            },
+            'whale_alerts': {
+                'allowed_tiers': ['admin'],
+                'description': 'Monitor large transactions'
+            },
+
+            # Portfolio & paper trading - admin only
+            'portfolio': {
+                'allowed_tiers': ['admin'],
+                'description': 'Paper trading portfolio management'
+            },
+            'add_position': {
+                'allowed_tiers': ['admin'],
+                'description': 'Add new position to portfolio'
+            },
+            'close_position': {
+                'allowed_tiers': ['admin'],
+                'description': 'Close position in portfolio'
+            },
+            'update_position': {
+                'allowed_tiers': ['admin'],
+                'description': 'Update position details'
+            },
+
+            # User management - admin only
+            'users': {
+                'allowed_tiers': ['admin'],
+                'description': 'List all users'
+            },
+            'ban': {
+                'allowed_tiers': ['admin'],
+                'description': 'Ban user from bot'
+            },
+            'unban': {
+                'allowed_tiers': ['admin'],
+                'description': 'Unban user'
+            },
+            'promote': {
+                'allowed_tiers': ['admin'],
+                'description': 'Promote user to admin role'
+            },
+            'demote': {
+                'allowed_tiers': ['admin'],
+                'description': 'Demote admin to user role'
+            },
+            'set_tier': {
+                'allowed_tiers': ['admin'],
+                'description': 'Set user subscription tier'
+            },
+            'grant_feature': {
+                'allowed_tiers': ['admin'],
+                'description': 'Grant specific feature to user'
+            },
+            'revoke_feature': {
+                'allowed_tiers': ['admin'],
+                'description': 'Revoke specific feature from user'
+            },
+
+            # Alerts - premium and admin
+            'add_alert': {
+                'allowed_tiers': ['premium', 'admin'],
+                'description': 'Set price alerts'
+            },
+            'list_alerts': {
+                'allowed_tiers': ['premium', 'admin'],
+                'description': 'List active alerts'
+            },
+            'delete_alert': {
+                'allowed_tiers': ['premium', 'admin'],
+                'description': 'Delete price alert'
+            },
+
+            # Subscriptions - premium and admin
+            'subscribe': {
+                'allowed_tiers': ['premium', 'admin'],
+                'description': 'Subscribe to trading pair updates'
+            },
+            'unsubscribe': {
+                'allowed_tiers': ['premium', 'admin'],
+                'description': 'Unsubscribe from trading pair'
+            },
+            'list_subscriptions': {
+                'allowed_tiers': ['premium', 'admin'],
+                'description': 'List active subscriptions'
+            },
+
+            # System config - admin only
+            'config': {
+                'allowed_tiers': ['admin'],
+                'description': 'View and modify system configuration'
+            },
+            'broadcast': {
+                'allowed_tiers': ['admin'],
+                'description': 'Send broadcast message to all users'
+            },
+            'stats': {
+                'allowed_tiers': ['admin'],
+                'description': 'View system statistics'
+            },
+            'subscription_history': {
+                'allowed_tiers': ['admin'],
+                'description': 'View subscription history'
+            },
+        }
+
+        # Set up SUBSCRIPTION namespace
+        subscription_data = self._trading_config.get("subscriptions", {})
+        self.SUBSCRIPTION = type('SubscriptionNamespace', (), {
+            'free_daily_signals_limit': subscription_data.get("free_daily_signals_limit", 5),
+            'free_max_alerts': subscription_data.get("free_max_alerts", 3),
+            'free_max_subscriptions': subscription_data.get("free_max_subscriptions", 5),
+            'premium_daily_signals_limit': subscription_data.get("premium_daily_signals_limit", -1),  # -1 = unlimited
+            'premium_max_alerts': subscription_data.get("premium_max_alerts", 50),
+            'premium_max_subscriptions': subscription_data.get("premium_max_subscriptions", 100),
+            'premium_trial_days': subscription_data.get("premium_trial_days", 7),
+        })()
     
     @classmethod
     def load_trading_config(cls) -> Dict:

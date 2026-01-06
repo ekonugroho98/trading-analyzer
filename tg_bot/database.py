@@ -41,7 +41,9 @@ class TelegramDatabase:
                 first_name TEXT,
                 last_name TEXT,
                 role TEXT DEFAULT 'user',
+                tier TEXT DEFAULT 'free',
                 enabled BOOLEAN DEFAULT 1,
+                subscription_expires_at TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -164,6 +166,41 @@ class TelegramDatabase:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_screening_schedules_chat_id ON screening_schedules(chat_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_screening_schedules_enabled ON screening_schedules(enabled)")
 
+        # User features table (for premium feature access control)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS user_features (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id INTEGER,
+                feature_name TEXT,
+                enabled BOOLEAN DEFAULT 1,
+                granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP,
+                FOREIGN KEY (chat_id) REFERENCES users(chat_id),
+                UNIQUE(chat_id, feature_name)
+            )
+        """)
+
+        # Subscription history table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS subscription_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id INTEGER,
+                tier TEXT,
+                action TEXT,
+                duration_days INTEGER,
+                payment_amount REAL,
+                payment_method TEXT,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (chat_id) REFERENCES users(chat_id)
+            )
+        """)
+
+        # Create indexes for new tables
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_features_chat_id ON user_features(chat_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_features_enabled ON user_features(enabled)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_subscription_history_chat_id ON subscription_history(chat_id)")
+
         conn.commit()
         conn.close()
 
@@ -195,7 +232,7 @@ class TelegramDatabase:
             cursor = conn.cursor()
 
             cursor.execute("""
-                SELECT chat_id, username, first_name, last_name, role, enabled, created_at, last_active
+                SELECT chat_id, username, first_name, last_name, role, tier, enabled, subscription_expires_at, created_at, last_active
                 FROM users WHERE chat_id = ?
             """, (chat_id,))
 
@@ -209,9 +246,11 @@ class TelegramDatabase:
                     'first_name': row[2],
                     'last_name': row[3],
                     'role': row[4],
-                    'enabled': bool(row[5]),
-                    'created_at': row[6],
-                    'last_active': row[7]
+                    'tier': row[5],
+                    'enabled': bool(row[6]),
+                    'subscription_expires_at': row[7],
+                    'created_at': row[8],
+                    'last_active': row[9]
                 }
             return None
         except Exception as e:
@@ -241,12 +280,12 @@ class TelegramDatabase:
 
             if enabled_only:
                 cursor.execute("""
-                    SELECT chat_id, username, first_name, last_name, role, enabled, created_at, last_active
+                    SELECT chat_id, username, first_name, last_name, role, tier, enabled, subscription_expires_at, created_at, last_active
                     FROM users WHERE enabled = 1
                 """)
             else:
                 cursor.execute("""
-                    SELECT chat_id, username, first_name, last_name, role, enabled, created_at, last_active
+                    SELECT chat_id, username, first_name, last_name, role, tier, enabled, subscription_expires_at, created_at, last_active
                     FROM users
                 """)
 
@@ -261,9 +300,11 @@ class TelegramDatabase:
                     'first_name': row[2],
                     'last_name': row[3],
                     'role': row[4],
-                    'enabled': bool(row[5]),
-                    'created_at': row[6],
-                    'last_active': row[7]
+                    'tier': row[5],
+                    'enabled': bool(row[6]),
+                    'subscription_expires_at': row[7],
+                    'created_at': row[8],
+                    'last_active': row[9]
                 })
 
             return users
@@ -966,6 +1007,291 @@ class TelegramDatabase:
             return True
         except Exception as e:
             logger.error(f"Error updating screening last_run: {e}")
+            return False
+
+    # ============ TIER & SUBSCRIPTION MANAGEMENT ============
+    def set_user_tier(self, chat_id: int, tier: str,
+                      duration_days: int = None, payment_amount: float = None,
+                      payment_method: str = None, notes: str = None,
+                      admin_chat_id: int = None) -> bool:
+        """Set user tier and optionally record subscription history
+
+        Args:
+            chat_id: User chat ID
+            tier: 'free', 'premium', or 'admin'
+            duration_days: Duration in days (for premium)
+            payment_amount: Payment amount (optional)
+            payment_method: Payment method (optional)
+            notes: Additional notes (optional)
+            admin_chat_id: Admin who performed the action (optional)
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # Calculate expiration date
+            expires_at = None
+            if duration_days and tier == 'premium':
+                from datetime import timedelta
+                expires_at = (datetime.now() + timedelta(days=duration_days)).strftime('%Y-%m-%d %H:%M:%S')
+
+            # Update user tier
+            cursor.execute("""
+                UPDATE users
+                SET tier = ?, subscription_expires_at = ?
+                WHERE chat_id = ?
+            """, (tier, expires_at, chat_id))
+
+            # Record in history if premium upgrade
+            if tier == 'premium' and duration_days:
+                cursor.execute("""
+                    INSERT INTO subscription_history
+                    (chat_id, tier, action, duration_days, payment_amount, payment_method, notes)
+                    VALUES (?, ?, 'upgrade', ?, ?, ?, ?)
+                """, (chat_id, tier, duration_days, payment_amount, payment_method, notes))
+
+            conn.commit()
+            conn.close()
+
+            logger.info(f"User tier updated: {chat_id} -> {tier}" + (f" (expires: {expires_at})" if expires_at else ""))
+            return True
+        except Exception as e:
+            logger.error(f"Error setting user tier: {e}")
+            return False
+
+    def get_user_tier(self, chat_id: int) -> str:
+        """Get user tier"""
+        user = self.get_user(chat_id)
+        if user:
+            tier = user.get('tier', 'free')
+
+            # Check if subscription expired
+            if tier == 'premium' and user.get('subscription_expires_at'):
+                try:
+                    expires_at = datetime.strptime(user['subscription_expires_at'], '%Y-%m-%d %H:%M:%S')
+                    if datetime.now() > expires_at:
+                        # Downgrade to free
+                        self.set_user_tier(chat_id, 'free')
+                        logger.info(f"User {chat_id} subscription expired, downgraded to free")
+                        return 'free'
+                except:
+                    pass
+
+            return tier
+        return 'free'
+
+    def has_feature_access(self, chat_id: int, feature: str) -> bool:
+        """Check if user has access to a specific feature
+
+        Args:
+            chat_id: User chat ID
+            feature: Feature name to check
+
+        Returns:
+            True if user has access
+        """
+        user = self.get_user(chat_id)
+        if not user or not user.get('enabled'):
+            return False
+
+        # Admin has access to everything
+        if self.is_admin(chat_id):
+            return True
+
+        tier = self.get_user_tier(chat_id)
+
+        # Check feature access based on tier
+        from config import config
+        if hasattr(config, 'FEATURE_ACCESS'):
+            feature_config = config.FEATURE_ACCESS.get(feature, {})
+            allowed_tiers = feature_config.get('allowed_tiers', ['admin'])
+            return tier in allowed_tiers
+
+        # Fallback: check user_features table
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT enabled, expires_at
+                FROM user_features
+                WHERE chat_id = ? AND feature_name = ?
+            """, (chat_id, feature))
+
+            row = cursor.fetchone()
+            conn.close()
+
+            if row:
+                enabled, expires_at = row
+                if not enabled:
+                    return False
+
+                # Check expiration
+                if expires_at:
+                    try:
+                        expire_date = datetime.strptime(expires_at, '%Y-%m-%d %H:%M:%S')
+                        if datetime.now() > expire_date:
+                            return False
+                    except:
+                        pass
+
+                return True
+        except Exception as e:
+            logger.error(f"Error checking feature access: {e}")
+
+        return False
+
+    def grant_feature(self, chat_id: int, feature: str, duration_days: int = None,
+                     admin_chat_id: int = None) -> bool:
+        """Grant feature access to user
+
+        Args:
+            chat_id: User chat ID
+            feature: Feature name
+            duration_days: Duration in days (None = permanent)
+            admin_chat_id: Admin who granted the feature
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # Calculate expiration
+            expires_at = None
+            if duration_days:
+                from datetime import timedelta
+                expires_at = (datetime.now() + timedelta(days=duration_days)).strftime('%Y-%m-%d %H:%M:%S')
+
+            cursor.execute("""
+                INSERT OR REPLACE INTO user_features
+                (chat_id, feature_name, enabled, granted_at, expires_at)
+                VALUES (?, ?, 1, CURRENT_TIMESTAMP, ?)
+            """, (chat_id, feature, expires_at))
+
+            conn.commit()
+            conn.close()
+
+            logger.info(f"Feature granted: {feature} to {chat_id}" + (f" (expires: {expires_at})" if expires_at else ""))
+            return True
+        except Exception as e:
+            logger.error(f"Error granting feature: {e}")
+            return False
+
+    def revoke_feature(self, chat_id: int, feature: str) -> bool:
+        """Revoke feature access from user"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                DELETE FROM user_features
+                WHERE chat_id = ? AND feature_name = ?
+            """, (chat_id, feature))
+
+            conn.commit()
+            conn.close()
+
+            logger.info(f"Feature revoked: {feature} from {chat_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Error revoking feature: {e}")
+            return False
+
+    def get_user_features(self, chat_id: int) -> List[Dict]:
+        """Get all granted features for a user"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT feature_name, enabled, granted_at, expires_at
+                FROM user_features
+                WHERE chat_id = ? AND enabled = 1
+                ORDER BY granted_at DESC
+            """, (chat_id,))
+
+            rows = cursor.fetchall()
+            conn.close()
+
+            features = []
+            for row in rows:
+                features.append({
+                    'feature_name': row[0],
+                    'enabled': bool(row[1]),
+                    'granted_at': row[2],
+                    'expires_at': row[3]
+                })
+
+            return features
+        except Exception as e:
+            logger.error(f"Error getting user features: {e}")
+            return []
+
+    def get_subscription_history(self, chat_id: int = None, limit: int = 50) -> List[Dict]:
+        """Get subscription history
+
+        Args:
+            chat_id: User chat ID (None = get all)
+            limit: Maximum number of records
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            if chat_id:
+                cursor.execute("""
+                    SELECT id, chat_id, tier, action, duration_days, payment_amount,
+                           payment_method, notes, created_at
+                    FROM subscription_history
+                    WHERE chat_id = ?
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                """, (chat_id, limit))
+            else:
+                cursor.execute("""
+                    SELECT id, chat_id, tier, action, duration_days, payment_amount,
+                           payment_method, notes, created_at
+                    FROM subscription_history
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                """, (limit,))
+
+            rows = cursor.fetchall()
+            conn.close()
+
+            history = []
+            for row in rows:
+                history.append({
+                    'id': row[0],
+                    'chat_id': row[1],
+                    'tier': row[2],
+                    'action': row[3],
+                    'duration_days': row[4],
+                    'payment_amount': row[5],
+                    'payment_method': row[6],
+                    'notes': row[7],
+                    'created_at': row[8]
+                })
+
+            return history
+        except Exception as e:
+            logger.error(f"Error getting subscription history: {e}")
+            return []
+
+    def update_user_role(self, chat_id: int, role: str) -> bool:
+        """Update user role (user/admin)"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute("UPDATE users SET role = ? WHERE chat_id = ?", (role, chat_id))
+
+            conn.commit()
+            conn.close()
+
+            logger.info(f"User role updated: {chat_id} -> {role}")
+            return True
+        except Exception as e:
+            logger.error(f"Error updating user role: {e}")
             return False
 
 

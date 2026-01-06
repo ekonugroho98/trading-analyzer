@@ -133,6 +133,24 @@ class TelegramTradingBot:
         app.add_handler(CommandHandler("set_exchange", set_exchange_command))
         app.add_handler(CommandHandler("my_exchange", my_exchange_command))
 
+        # Admin commands (NEW)
+        from tg_bot.handlers.admin import (
+            users_command, ban_command, unban_command, promote_command, demote_command,
+            set_tier_command, grant_feature_command, revoke_feature_command,
+            subscription_history_command, stats_command, broadcast_command
+        )
+        app.add_handler(CommandHandler("users", users_command))
+        app.add_handler(CommandHandler("ban", ban_command))
+        app.add_handler(CommandHandler("unban", unban_command))
+        app.add_handler(CommandHandler("promote", promote_command))
+        app.add_handler(CommandHandler("demote", demote_command))
+        app.add_handler(CommandHandler("set_tier", set_tier_command))
+        app.add_handler(CommandHandler("grant_feature", grant_feature_command))
+        app.add_handler(CommandHandler("revoke_feature", revoke_feature_command))
+        app.add_handler(CommandHandler("subscription_history", subscription_history_command))
+        app.add_handler(CommandHandler("stats", stats_command))
+        app.add_handler(CommandHandler("broadcast", broadcast_command))
+
         # Callback query handlers for inline keyboards
         app.add_handler(CallbackQueryHandler(portfolio_handler.add_from_plan_callback, pattern="^add_portfolio_"))
         app.add_handler(CallbackQueryHandler(portfolio_confirm_callback, pattern="^portfolio_confirm_"))

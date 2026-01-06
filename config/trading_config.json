@@ -193,5 +193,15 @@
       "port": 8000,
       "auth_required": true,
       "rate_limit": "100/hour"
+    },
+
+    "subscriptions": {
+      "free_daily_signals_limit": 5,
+      "free_max_alerts": 3,
+      "free_max_subscriptions": 5,
+      "premium_daily_signals_limit": -1,
+      "premium_max_alerts": 50,
+      "premium_max_subscriptions": 100,
+      "premium_trial_days": 7
     }
   }
