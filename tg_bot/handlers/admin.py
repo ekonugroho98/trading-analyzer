@@ -5,7 +5,7 @@ Handles user management, tier management, and system administration.
 
 import logging
 from datetime import datetime
-from telegram import Update, ParseMode
+from telegram import Update
 from telegram.ext import ContextTypes
 
 from tg_bot.database import db
@@ -74,7 +74,7 @@ async def users_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if len(disabled_users) > 5:
                 message += f"\n  ... and {len(disabled_users) - 5} more"
 
-        await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(message, parse_mode='Markdown')
 
     except Exception as e:
         logger.error(f"Error in users_command: {e}")
@@ -89,7 +89,7 @@ async def ban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 "❌ Usage: `/ban <chat_id_or_username> [reason]`\n\n"
                 "Example: `/ban 123456789 spamming`",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode='Markdown'
             )
             return
 
@@ -127,7 +127,7 @@ async def ban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 f"✅ User `{chat_id}` has been banned.\n"
                 f"Reason: {reason}",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode='Markdown'
             )
         else:
             await update.message.reply_text("❌ Failed to ban user.")
@@ -145,7 +145,7 @@ async def unban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 "❌ Usage: `/unban <chat_id_or_username>`\n\n"
                 "Example: `/unban 123456789`",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode='Markdown'
             )
             return
 
@@ -181,7 +181,7 @@ async def unban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.info(f"User {chat_id} unbanned by admin {update.effective_chat.id}")
             await update.message.reply_text(
                 f"✅ User `{chat_id}` has been unbanned.",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode='Markdown'
             )
         else:
             await update.message.reply_text("❌ Failed to unban user.")
@@ -199,7 +199,7 @@ async def promote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 "❌ Usage: `/promote <chat_id_or_username>`\n\n"
                 "Example: `/promote 123456789`",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode='Markdown'
             )
             return
 
@@ -235,7 +235,7 @@ async def promote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.info(f"User {chat_id} promoted to admin by {update.effective_chat.id}")
             await update.message.reply_text(
                 f"✅ User `{chat_id}` has been promoted to *admin* role.",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode='Markdown'
             )
         else:
             await update.message.reply_text("❌ Failed to promote user.")
@@ -253,7 +253,7 @@ async def demote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 "❌ Usage: `/demote <chat_id_or_username>`\n\n"
                 "Example: `/demote 123456789`",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode='Markdown'
             )
             return
 
@@ -289,7 +289,7 @@ async def demote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.info(f"User {chat_id} demoted to user by {update.effective_chat.id}")
             await update.message.reply_text(
                 f"✅ User `{chat_id}` has been demoted to *user* role.",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode='Markdown'
             )
         else:
             await update.message.reply_text("❌ Failed to demote user.")
@@ -309,7 +309,7 @@ async def set_tier_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Tiers: `free`, `premium`\n\n"
                 "Example: `/set_tier 123456789 premium 30 50.00 Monthly subscription`\n"
                 "Example: `/set_tier @username free`",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode='Markdown'
             )
             return
 
@@ -371,7 +371,7 @@ async def set_tier_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if payment_amount:
                     message += f"\n💰 Payment: ${payment_amount}"
 
-            await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(message, parse_mode='Markdown')
         else:
             await update.message.reply_text("❌ Failed to set user tier.")
 
@@ -389,7 +389,7 @@ async def grant_feature_command(update: Update, context: ContextTypes.DEFAULT_TY
                 "❌ Usage: `/grant_feature <chat_id_or_username> <feature_name> [duration_days]`\n\n"
                 "Example: `/grant_feature 123456789 screen 30`\n"
                 "Example: `/grant_feature @username plan`",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode='Markdown'
             )
             return
 
@@ -438,7 +438,7 @@ async def grant_feature_command(update: Update, context: ContextTypes.DEFAULT_TY
                 expire_date = datetime.now() + timedelta(days=duration_days)
                 message += f"\n📅 Expires: {expire_date.strftime('%Y-%m-%d')}"
 
-            await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(message, parse_mode='Markdown')
         else:
             await update.message.reply_text("❌ Failed to grant feature.")
 
@@ -456,7 +456,7 @@ async def revoke_feature_command(update: Update, context: ContextTypes.DEFAULT_T
                 "❌ Usage: `/revoke_feature <chat_id_or_username> <feature_name>`\n\n"
                 "Example: `/revoke_feature 123456789 screen`\n"
                 "Example: `/revoke_feature @username plan`",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode='Markdown'
             )
             return
 
@@ -493,7 +493,7 @@ async def revoke_feature_command(update: Update, context: ContextTypes.DEFAULT_T
             logger.info(f"Feature '{feature}' revoked from {chat_id} by admin {update.effective_chat.id}")
             await update.message.reply_text(
                 f"✅ Feature '{feature}' revoked from user `{chat_id}`.",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode='Markdown'
             )
         else:
             await update.message.reply_text("❌ Failed to revoke feature.")
@@ -562,7 +562,7 @@ async def subscription_history_command(update: Update, context: ContextTypes.DEF
             message += f"📅 Date: {record['created_at']}\n"
             message += "\n"
 
-        await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(message, parse_mode='Markdown')
 
     except Exception as e:
         logger.error(f"Error in subscription_history_command: {e}")
@@ -610,7 +610,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 message += f"• Total Revenue: ${revenue:.2f}\n"
             message += "\n"
 
-        await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(message, parse_mode='Markdown')
 
     except Exception as e:
         logger.error(f"Error in stats_command: {e}")
@@ -625,7 +625,7 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 "❌ Usage: `/broadcast <message>`\n\n"
                 "Example: `/broadcast System maintenance in 1 hour`",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode='Markdown'
             )
             return
 
@@ -647,7 +647,7 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.send_message(
                     chat_id=user['chat_id'],
                     text=f"📢 *Broadcast Message*\n\n{message_content}",
-                    parse_mode=ParseMode.MARKDOWN
+                    parse_mode='Markdown'
                 )
                 success_count += 1
             except Exception as e:
@@ -662,7 +662,7 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"• Total: {len(users)}"
         )
 
-        await update.message.reply_text(result_message, parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(result_message, parse_mode='Markdown')
         logger.info(f"Broadcast sent by admin {update.effective_chat.id}. Success: {success_count}, Failed: {failed_count}")
 
     except Exception as e:
