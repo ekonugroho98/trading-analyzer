@@ -169,14 +169,21 @@ async def screen_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 primary_tf = context.args[0].lower()
 
             # Validate timeframe
-            valid_tfs = ['1h', '2h', '4h', '1d']
+            valid_tfs = ['15m', '30m', '1h', '2h', '4h', '1d']
             if primary_tf not in valid_tfs:
                 await update.effective_message.reply_text(
                     f"❌ Invalid timeframe: {primary_tf}\n\n"
                     f"Valid timeframes: {', '.join(valid_tfs)}\n\n"
                     f"Usage:\n"
                     f"  /screen [timeframe] [limit]  - Multi-TF analysis (default)\n"
-                    f"  /screen --single [tf] [limit] - Single timeframe mode"
+                    f"  /screen --single [tf] [limit] - Single timeframe mode\n\n"
+                    f"Multi-TF Combinations:\n"
+                    f"  • 1d → 4h + 2h\n"
+                    f"  • 4h → 1h + 30m\n"
+                    f"  • 2h → 1h + 30m\n"
+                    f"  • 1h → 30m + 15m\n"
+                    f"  • 30m → 15m + (no third)\n"
+                    f"  • 15m → Single TF only"
                 )
                 return
 
@@ -208,12 +215,32 @@ async def screen_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 return
 
+    # Determine secondary timeframes based on primary
+    multi_tf_map = {
+        '1d': ['4h', '2h'],
+        '4h': ['1h', '30m'],
+        '2h': ['1h', '30m'],
+        '1h': ['30m', '15m'],
+        '30m': ['15m'],
+        '15m': []  # 15m doesn't have smaller TFs
+    }
+
+    secondary_tfs = multi_tf_map.get(primary_tf, [])
+
+    # If no secondary TFs available, use single mode
+    if use_multi_tf and not secondary_tfs:
+        use_multi_tf = False
+
     # Send loading message
     mode_text = "Multi-Timeframe" if use_multi_tf else "Single Timeframe"
+    tf_info = f"Primary: {primary_tf.upper()}"
+    if use_multi_tf and secondary_tfs:
+        tf_info += f" | Secondary: {', '.join(secondary_tfs).upper()}"
+
     loading_msg = await update.effective_message.reply_text(
         f"🔍 *Screening Market*\n\n"
         f"Mode: {mode_text}\n"
-        f"Primary Timeframe: {primary_tf.upper()}\n"
+        f"{tf_info}\n"
         f"Symbols: {limit}\n\n"
         f"This may take a moment...",
         parse_mode='Markdown'
@@ -224,12 +251,12 @@ async def screen_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         screener = get_screener()
 
         if use_multi_tf:
-            # Multi-timeframe analysis: Primary TF + 4H + 2H
-            logger.info(f"Starting multi-TF screening: {primary_tf} primary, 4H+2H secondary, {limit} coins")
+            # Multi-timeframe analysis with dynamic secondary TFs
+            logger.info(f"Starting multi-TF screening: {primary_tf} primary, {secondary_tfs} secondary, {limit} coins")
 
             results = await screener.screen_market_multi_tf(
                 primary_tf=primary_tf,
-                secondary_tfs=['4h', '2h'],
+                secondary_tfs=secondary_tfs,
                 limit=limit,
                 min_score=5.0,
                 max_results=30
