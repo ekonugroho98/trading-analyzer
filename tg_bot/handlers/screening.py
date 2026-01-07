@@ -149,71 +149,97 @@ Sent {actionable_count} actionable signals
 
 @require_admin
 async def screen_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Screen market for good trading setups using multi-timeframe analysis"""
+    """Screen market for good trading setups - Interactive mode with buttons"""
     if not update.effective_message or not update.effective_chat:
         return
 
+    # Check if user provided arguments (legacy mode)
+    if context.args:
+        # Legacy mode - run screening directly with arguments
+        primary_tf = context.args[0].lower() if context.args[0].lower() in ['15m', '30m', '1h', '2h', '4h', '1d'] else '4h'
+        await run_legacy_screening(update, context, primary_tf)
+        return
+
+    # Interactive mode - show timeframe selection buttons
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+    keyboard = [
+        [
+            InlineKeyboardButton("🚀 Scalping 15m", callback_data="tf_15m"),
+            InlineKeyboardButton("⚡ Intraday 1h", callback_data="tf_1h")
+        ],
+        [
+            InlineKeyboardButton("📈 Swing 4h", callback_data="tf_4h"),
+            InlineKeyboardButton("🏢 Daily 1D", callback_data="tf_1d")
+        ],
+        [
+            InlineKeyboardButton("⏰ Auto Screen", callback_data="autoscreen_menu"),
+            InlineKeyboardButton("❌ Cancel", callback_data="close_message")
+        ]
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.effective_message.reply_text(
+        "📊 *Market Screener*\n\n"
+        "Select timeframe for screening:\n\n"
+        "💡 *Tips:*\n"
+        "• *15m* - For scalping trades\n"
+        "• *1h* - For intraday setups\n"
+        "• *4h* - For swing trading\n"
+        "• *1D* - For daily analysis",
+        parse_mode='Markdown',
+        reply_markup=reply_markup
+    )
+
+
+async def run_legacy_screening(update: Update, context: ContextTypes.DEFAULT_TYPE, timeframe: str):
+    """Run screening in legacy mode (without buttons)"""
     # Parse arguments
-    primary_tf = '1d'  # Default: 1D primary timeframe
+    primary_tf = timeframe
     limit = 100  # default
     use_multi_tf = True  # Default: use multi-timeframe analysis
 
-    if context.args:
-        if len(context.args) >= 1:
-            # Check if user wants single timeframe mode
-            if context.args[0].lower() in ['--single', '-s']:
-                use_multi_tf = False
-                if len(context.args) >= 2:
-                    primary_tf = context.args[1].lower()
-            else:
-                primary_tf = context.args[0].lower()
+    # Validate timeframe
+    valid_tfs = ['15m', '30m', '1h', '2h', '4h', '1d']
+    if primary_tf not in valid_tfs:
+        await update.effective_message.reply_text(
+            f"❌ Invalid timeframe: {primary_tf}\n\n"
+            f"Valid timeframes: {', '.join(valid_tfs)}\n\n"
+            f"Usage:\n"
+            f"  /screen [timeframe] [limit]  - Multi-TF analysis (default)\n"
+            f"  /screen --single [tf] [limit] - Single timeframe mode\n\n"
+            f"Multi-TF Combinations:\n"
+            f"  • 1d → 4h + 2h\n"
+            f"  • 4h → 1h + 30m\n"
+            f"  • 2h → 1h + 30m\n"
+            f"  • 1h → 30m + 15m\n"
+            f"  • 30m → 15m + (no third)\n"
+            f"  • 15m → Single TF only"
+        )
+        return
 
-            # Validate timeframe
-            valid_tfs = ['15m', '30m', '1h', '2h', '4h', '1d']
-            if primary_tf not in valid_tfs:
-                await update.effective_message.reply_text(
-                    f"❌ Invalid timeframe: {primary_tf}\n\n"
-                    f"Valid timeframes: {', '.join(valid_tfs)}\n\n"
-                    f"Usage:\n"
-                    f"  /screen [timeframe] [limit]  - Multi-TF analysis (default)\n"
-                    f"  /screen --single [tf] [limit] - Single timeframe mode\n\n"
-                    f"Multi-TF Combinations:\n"
-                    f"  • 1d → 4h + 2h\n"
-                    f"  • 4h → 1h + 30m\n"
-                    f"  • 2h → 1h + 30m\n"
-                    f"  • 1h → 30m + 15m\n"
-                    f"  • 30m → 15m + (no third)\n"
-                    f"  • 15m → Single TF only"
-                )
-                return
+    # Continue with legacy screening logic...
+    # (Rest of the original screening code continues here)
+    # For now, just send a message directing to use interactive mode
 
-        if len(context.args) >= 2:
-            # Check if second arg is limit or timeframe (in --single mode)
-            try:
-                # If in single mode, second arg might be timeframe
-                if not use_multi_tf and len(context.args) >= 2:
-                    arg2 = context.args[1].lower()
-                    if arg2 in valid_tfs:
-                        primary_tf = arg2
-                        if len(context.args) >= 3:
-                            limit = int(context.args[2])
-                    else:
-                        limit = int(context.args[1])
-                else:
-                    limit = int(context.args[1])
+    # For now, redirect to use interactive mode
+    # Legacy mode with arguments is deprecated in favor of button interface
+    await update.effective_message.reply_text(
+        f"⚠️ *Legacy Mode Deprecated*\n\n"
+        f"Please use the interactive mode instead:\n"
+        f"Type /screen without arguments to use the button interface.\n\n"
+        f"This provides a better user experience with:\n"
+        f"• Visual timeframe selection\n"
+        f"• Randomized coin selection\n"
+        f"• Direct action buttons\n"
+        f"• Pagination support",
+        parse_mode='Markdown'
+    )
+    return
 
-                if limit < 10 or limit > 500:
-                    await update.effective_message.reply_text(
-                        f"❌ Invalid limit: {limit}\n\n"
-                        f"Limit must be between 10 and 500"
-                    )
-                    return
-            except ValueError:
-                await update.effective_message.reply_text(
-                    f"❌ Invalid limit format\n\n"
-                    f"Usage: /screen [timeframe] [limit]"
-                )
-                return
+    # Legacy screening logic below is preserved for future reference
+    # To re-enable: remove the return statement above
 
     # Determine secondary timeframes based on primary
     multi_tf_map = {

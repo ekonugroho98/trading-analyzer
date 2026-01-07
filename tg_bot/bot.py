@@ -174,6 +174,10 @@ class TelegramTradingBot:
         app.add_handler(CallbackQueryHandler(portfolio_confirm_callback, pattern="^portfolio_confirm_"))
         app.add_handler(CallbackQueryHandler(portfolio_cancel_callback, pattern="^portfolio_cancel$"))
 
+        # Interactive screening buttons
+        from tg_bot.handlers.callbacks import register_callback_handlers
+        register_callback_handlers(app)
+
         logger.info("All handlers registered")
 
     async def post_init(self, application: Application) -> None:
