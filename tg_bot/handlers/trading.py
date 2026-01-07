@@ -124,21 +124,49 @@ async def plan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Get symbol from args
         if not context.args or len(context.args) < 1:
             await update.message.reply_text(
-                "Usage: /plan [symbol] [timeframe]\n"
-                "Example: /plan BTCUSDT\n"
-                "         /plan ETHUSDT 1h"
+                "Usage: /plan [symbol] [timeframe] [--single]\n"
+                "Examples:\n"
+                "  /plan BTCUSDT           # Multi-TF (default)\n"
+                "  /plan BTCUSDT 4h        # Multi-TF with 4h primary\n"
+                "  /plan BTCUSDT 4h --single  # Single TF only (more stable)\n"
+                "  /plan BTCUSDT 1d        # Multi-TF with daily\n\n"
+                "Multi-TF Combinations:\n"
+                "  • 1d → 4h + 1h\n"
+                "  • 4h → 1h (no 30m/15m - too volatile)\n"
+                "  • 2h → 1h\n"
+                "  • 1h → Single only\n"
+                "  • 30m/15m → Single only\n\n"
+                "Use --single for more stable signals (less whipsaw)"
             )
             return
 
         symbol = context.args[0].upper()
-        timeframe = context.args[1] if len(context.args) > 1 else "4h"
+
+        # Parse timeframe and mode
+        timeframe = "4h"  # default
+        use_multi_tf = True  # default
+
+        if len(context.args) >= 2:
+            arg2 = context.args[1].lower()
+
+            # Check if --single flag
+            if arg2 in ['--single', '-s']:
+                use_multi_tf = False
+                if len(context.args) >= 3:
+                    timeframe = context.args[2].lower()
+            else:
+                timeframe = arg2
 
         # Get user's preferred exchange
         preferred_exchange = db.get_user_preference(chat_id, 'default_exchange', default='bybit')
 
+        # Show mode info
+        mode_text = "Multi-Timeframe" if use_multi_tf else "Single Timeframe"
+        mode_info = f"\n📊 Mode: {mode_text}\n⏱ TF: {timeframe.upper()}"
+
         # Send loading message
         loading_msg = await update.message.reply_text(
-            TelegramFormatter.loading_message(f"Generating AI trading plan for {symbol}")
+            TelegramFormatter.loading_message(f"Generating AI trading plan for {symbol}{mode_info}")
         )
 
         # Generate trading plan
@@ -150,7 +178,8 @@ async def plan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 timeframe=timeframe,
                 data_points=100,
                 preferred_exchange=preferred_exchange,
-                analysis_type="trading_plan"
+                analysis_type="trading_plan",
+                include_multi_timeframe=use_multi_tf  # Pass user's choice
             )
 
             # Run in thread pool to avoid blocking

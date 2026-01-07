@@ -144,12 +144,21 @@ class TradingPlanGenerator:
         """Rate limiting"""
         current_time = time.time()
         elapsed = current_time - self.last_request_time
-        
+
         if elapsed < self.request_delay:
             time.sleep(self.request_delay - elapsed)
-        
+
         self.last_request_time = time.time()
-    
+
+    def _get_tf_minutes(self, timeframe: str) -> int:
+        """Convert timeframe string to minutes for sorting"""
+        tf_map = {
+            '1m': 1, '3m': 3, '5m': 5, '15m': 15, '30m': 30,
+            '1h': 60, '2h': 120, '4h': 240, '6h': 360, '12h': 720,
+            '1d': 1440, '3d': 4320, '1w': 10080
+        }
+        return tf_map.get(timeframe, 0)
+
     # ============ TRADING PLAN PROMPT ============
     def _create_trading_plan_prompt(self, df: pd.DataFrame, request: AnalysisRequest,
                                     mtf_data: List[TimeframeAnalysis] = None) -> str:
@@ -187,19 +196,29 @@ class TradingPlanGenerator:
             for tf_analysis in mtf_data:
                 mtf_section += f"        • {tf_analysis.timeframe.upper()}: {tf_analysis.summary}\n"
 
-            # Check confluence
+            # Check confluence with higher TF priority
             if len(mtf_data) >= 2:
-                trends = [tf.trend for tf in mtf_data]
-                if all(t == "BULLISH" for t in trends):
+                # Sort timeframes by length (longer TF = higher priority)
+                sorted_tfs = sorted(mtf_data, key=lambda x: self._get_tf_minutes(x.timeframe), reverse=True)
+                trends = [tf.trend for tf in sorted_tfs]
+
+                # Check if higher timeframes align
+                higher_tf_bullish = trends[0] == "BULLISH"  # Primary TF trend
+                all_aligned = all(t == trends[0] for t in trends)
+
+                if all_aligned and higher_tf_bullish:
                     mtf_section += "        ✅ STRONG BULLISH CONFLUENCE - All timeframes aligned bullish\n"
-                elif all(t == "BEARISH" for t in trends):
+                elif all_aligned and not higher_tf_bullish:
                     mtf_section += "        ✅ STRONG BEARISH CONFLUENCE - All timeframes aligned bearish\n"
-                elif trends.count("BULLISH") > trends.count("BEARISH"):
-                    mtf_section += "        ⚠️ PARTIAL BULLISH CONFLUENCE - Most timeframes bullish\n"
-                elif trends.count("BEARISH") > trends.count("BULLISH"):
-                    mtf_section += "        ⚠️ PARTIAL BEARISH CONFLUENCE - Most timeframes bearish\n"
+                elif higher_tf_bullish and trends.count("BULLISH") >= len(trends) / 2:
+                    mtf_section += "        ⚠️ PARTIAL BULLISH CONFLUENCE - Higher TF bullish, some lower TFs bearish\n"
+                elif not higher_tf_bullish and trends.count("BEARISH") >= len(trends) / 2:
+                    mtf_section += "        ⚠️ PARTIAL BEARISH CONFLUENCE - Higher TF bearish, some lower TFs bullish\n"
                 else:
                     mtf_section += "        ❌ NO CLEAR CONFLUENCE - Timeframes showing mixed signals\n"
+
+                # Add priority warning
+                mtf_section += f"\n        ⚠️ PRIORITY: {sorted_tfs[0].timeframe.upper()} (higher timeframe) overrides lower TFs for trend direction\n"
 
         prompt = f"""
         Anda adalah CONSERVATIVE TRADING SPECIALIST dengan pendekatan RISK-ADVERSE.
@@ -213,6 +232,18 @@ class TradingPlanGenerator:
         5. Timeframe adalah 1h di luar market hours (00:00-08:00 UTC)
 
         Jika kondisi di atas terpenuhi, return HOLD signal.
+
+        ⚠️ TIMEFRAME PRIORITY (PENTING):
+        • HIGHER TIMEFRAME (Primary) > LOWER TIMEFRAME (Secondary)
+        • Primary TF menentukan TREND DIRECTION
+        • Secondary TF HANYA untuk entry timing confirmation
+        • Jangan buat signal berlawanan dengan higher timeframe!
+
+        CONTOH:
+        - 4H BULLISH, 1H BEARISH → Tetap BUY (tunggu pullback ke 4H support)
+        - 4H BEARISH, 1H BULLISH → Tetap SELL atau WAIT (jangan counter-trend)
+        - Hanya buat BUY jika minimal 2 TFs aligned bullish
+        - Hanya buat SELL jika minimal 2 TFs aligned bearish
 
         BUATKAN CONSERVATIVE TRADING PLAN untuk {request.symbol} pada timeframe {request.timeframe}.
 
@@ -548,15 +579,17 @@ class TradingPlanGenerator:
         if not request.include_multi_timeframe:
             return mtf_data
 
-        # Define timeframe hierarchy
+        # Define timeframe hierarchy (CONSERVATIVE - avoid 30m/15m for lower timeframes)
+        # Removed 30m/15m for 4h and below to reduce signal volatility
         timeframe_map = {
             '1m': [],
             '5m': ['1m'],
-            '15m': ['5m', '1m'],
-            '1h': ['30m', '15m'],
-            '2h': ['1h', '30m', '15m'],
-            '4h': ['1h', '30m', '15m'],
-            '1d': ['4h', '1h', '30m']
+            '15m': [],  # 15m too volatile for multi-TF
+            '30m': [],  # 30m too volatile for multi-TF
+            '1h': [],  # 1h is the lowest for reliable multi-TF
+            '2h': ['1h'],  # Only 1H lower TF
+            '4h': ['1h'],  # Only 1H lower TF (removed 30m/15m - too volatile!)
+            '1d': ['4h', '1h']  # Daily: 4H + 1H only (removed 30m)
         }
 
         additional_timeframes = timeframe_map.get(request.timeframe, [])
