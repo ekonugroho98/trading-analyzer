@@ -33,41 +33,59 @@ async def screen_market(timeframe: str = '4h', limit: int = 20) -> list:
 
         screener = MarketScreener()
 
-        # Default symbols to screen
-        symbols = [
-            'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT',
-            'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'DOTUSDT', 'MATICUSDT',
-            'LINKUSDT', 'UNIUSDT', 'LTCUSDT', 'ATOMUSDT', 'NEARUSDT'
-        ]
+        # Get all USDT pairs from Bybit
+        logger.info("Fetching all USDT symbols from Bybit...")
+        symbols = await screener.get_top_symbols(limit=1000)  # Get all available
+
+        if not symbols:
+            logger.warning("No symbols fetched from Bybit, using fallback list")
+            # Fallback to hardcoded list if Bybit fetch fails
+            symbols = [
+                'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT',
+                'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'DOTUSDT', 'MATICUSDT',
+                'LINKUSDT', 'UNIUSDT', 'LTCUSDT', 'ATOMUSDT', 'NEARUSDT'
+            ]
+
+        logger.info(f"Screening {len(symbols)} symbols from Bybit...")
 
         # Screen each symbol
         results = []
+        screened_count = 0
+
         for symbol in symbols:
             try:
                 # Get single timeframe analysis
-                analysis = await screener.analyze_symbol(
+                screen_result = await screener.screen_coin(
                     symbol=symbol,
                     timeframe=timeframe
                 )
 
-                if analysis:
-                    # Calculate score based on analysis
-                    score = calculate_coin_score(analysis)
-
+                if screen_result:
+                    # Convert ScreenResult to dict format
                     results.append({
                         'symbol': symbol,
-                        'score': score,
-                        'trend': analysis.get('trend', 'NEUTRAL'),
-                        'rsi': analysis.get('rsi', 'N/A'),
-                        'macd': analysis.get('macd_signal', 'NEUTRAL'),
-                        'adx': analysis.get('adx', 'N/A'),
-                        'price': analysis.get('current_price', 0),
-                        'analysis': analysis
+                        'score': screen_result.score,
+                        'trend': screen_result.trend,
+                        'rsi': 'N/A',  # Not available in ScreenResult
+                        'macd': 'NEUTRAL',  # Not available in ScreenResult
+                        'adx': 'N/A',  # Not available in ScreenResult
+                        'price': screen_result.current_price,
+                        'signals': screen_result.signals,
+                        'analysis': screen_result.analysis,
+                        'volume_24h': screen_result.volume_24h,
+                        'change_24h': screen_result.change_24h
                     })
+                    screened_count += 1
+
+                    # Log progress every 50 coins
+                    if screened_count % 50 == 0:
+                        logger.info(f"Screened {screened_count}/{len(symbols)} symbols...")
 
             except Exception as e:
                 logger.warning(f"Error analyzing {symbol}: {e}")
                 continue
+
+        logger.info(f"Screening complete: {screened_count}/{len(symbols)} symbols analyzed, {len(results)} qualified")
 
         return results
 
@@ -164,12 +182,12 @@ async def timeframe_callback_handler(update: Update, context: ContextTypes.DEFAU
                 )
                 return
 
-            # Filter coins with score >= 60
-            qualified_coins = [r for r in results if isinstance(r, dict) and r.get('score', 0) >= 60]
+            # Filter coins with score >= 50 (lowered from 60 to get more results)
+            qualified_coins = [r for r in results if isinstance(r, dict) and r.get('score', 0) >= 50]
 
             if len(qualified_coins) == 0:
                 await query.edit_message_text(
-                    "❌ No coins meet minimum criteria (score ≥ 60).\n"
+                    "❌ No coins meet minimum criteria (score ≥ 50).\n"
                     "Try again later or use a different timeframe.",
                     parse_mode='Markdown'
                 )
@@ -327,7 +345,7 @@ async def pagination_callback_handler(update: Update, context: ContextTypes.DEFA
 
         # Re-run screening and show requested page
         results = await screen_market(timeframe=timeframe, limit=20)
-        qualified_coins = [r for r in results if r.get('score', 0) >= 60]
+        qualified_coins = [r for r in results if r.get('score', 0) >= 50]
 
         if len(qualified_coins) > 10:
             selected_coins = random.sample(qualified_coins, 10)

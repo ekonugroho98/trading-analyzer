@@ -50,18 +50,39 @@ class MarketScreener:
         self.collector = CryptoDataCollector()
 
     async def get_top_symbols(self, limit: int = 100) -> List[str]:
-        """Get top USDT pairs by volume"""
+        """Get top USDT pairs by volume from Bybit"""
         try:
-            # Return static list for now
-            # In production, you would fetch from Binance API
-            symbols = TOP_USDT_PAIRS[:limit]
+            # Fetch all USDT pairs from Bybit
+            import requests
+            url = "https://api.bybit.com/v5/market/tickers"
+            params = {
+                "category": "spot"
+            }
 
-            logger.info(f"Retrieved {len(symbols)} top USDT pairs")
-            return symbols
+            response = requests.get(url, params=params, timeout=10)
+            data = response.json()
+
+            if data.get('retCode') == 0 and 'result' in data:
+                # Get all USDT pairs
+                all_symbols = []
+                for ticker in data['result']['list']:
+                    symbol = ticker['symbol']
+                    # Filter only USDT pairs
+                    if symbol.endswith('USDT'):
+                        all_symbols.append(symbol)
+
+                logger.info(f"Fetched {len(all_symbols)} USDT pairs from Bybit")
+                return all_symbols[:limit] if limit else all_symbols
+            else:
+                logger.warning(f"Failed to fetch from Bybit: {data.get('retMsg', 'Unknown error')}, using fallback list")
+                return TOP_USDT_PAIRS[:limit]
 
         except Exception as e:
-            logger.error(f"Error getting top symbols: {e}")
-            return []
+            logger.error(f"Error getting top symbols from Bybit: {e}")
+            # Return static list as fallback
+            symbols = TOP_USDT_PAIRS[:limit]
+            logger.info(f"Using fallback list with {len(symbols)} symbols")
+            return symbols
 
     async def screen_coin(
         self,
