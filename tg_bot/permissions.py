@@ -84,18 +84,24 @@ def require_feature(feature: str):
                     message = (
                         f"❌ *Access Denied*\n\n"
                         f"'{description}' is not available for Free tier users.\n\n"
+                        f"👤 *Your Info:*\n"
+                        f"• Chat ID: `{chat_id}`\n"
+                        f"• Tier: {tier.capitalize()}\n\n"
                         f"📈 *Upgrade to Premium* to access:\n"
                         f"• Technical Analysis\n"
                         f"• AI Trading Plans\n"
                         f"• Price Alerts\n"
                         f"• And much more!\n\n"
-                        f"💬 Contact @admin for subscription info."
+                        f"💬 Contact @admin with your Chat ID for subscription info."
                     )
                 else:
                     message = (
                         f"❌ *Access Denied*\n\n"
                         f"You don't have permission to access '{description}'.\n\n"
-                        f"If you believe this is an error, please contact admin."
+                        f"👤 *Your Info:*\n"
+                        f"• Chat ID: `{chat_id}`\n"
+                        f"• Tier: {tier.capitalize()}\n\n"
+                        f"If you believe this is an error, please contact admin with your Chat ID."
                     )
 
                 await update.message.reply_text(message, parse_mode='Markdown')
@@ -180,12 +186,15 @@ def require_tier(minimum_tier: str):
 
                 message = (
                     f"❌ *Access Denied*\n\n"
-                    f"This command requires {tier_names.get(minimum_tier, minimum_tier)} tier or higher.\n"
-                    f"Your current tier: {tier_names.get(user_tier, user_tier)}"
+                    f"This command requires {tier_names.get(minimum_tier, minimum_tier)} tier or higher.\n\n"
+                    f"👤 *Your Info:*\n"
+                    f"• Chat ID: `{chat_id}`\n"
+                    f"• Current Tier: {tier_names.get(user_tier, user_tier)}\n"
+                    f"• Required Tier: {tier_names.get(minimum_tier, minimum_tier)}"
                 )
 
                 if minimum_tier == 'premium':
-                    message += "\n\n💬 Contact @admin to upgrade your subscription."
+                    message += "\n\n💬 Contact @admin with your Chat ID to upgrade your subscription."
 
                 await update.message.reply_text(message, parse_mode='Markdown')
                 return
