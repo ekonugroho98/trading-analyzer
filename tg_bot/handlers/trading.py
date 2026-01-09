@@ -18,6 +18,90 @@ from collector import CryptoDataCollector
 logger = logging.getLogger(__name__)
 
 
+async def generate_trading_plan_helper(
+    symbol: str,
+    timeframe: str,
+    chat_id: int,
+    context: ContextTypes.DEFAULT_TYPE,
+    update: Update = None,
+    use_multi_tf: bool = True
+):
+    """
+    Helper function to generate trading plan (shared by command and callback)
+
+    Args:
+        symbol: Trading pair symbol
+        timeframe: Analysis timeframe
+        chat_id: User's chat ID
+        context: Bot context
+        update: Update object (optional, for command handler)
+        use_multi_tf: Whether to use multi-timeframe analysis
+
+    Returns:
+        TradingPlan object or None
+    """
+    try:
+        # Get user's preferred exchange
+        preferred_exchange = db.get_user_preference(chat_id, 'default_exchange', default='bybit')
+
+        # Generate trading plan
+        generator = TradingPlanGenerator()
+
+        request = AnalysisRequest(
+            symbol=symbol,
+            timeframe=timeframe,
+            data_points=100,
+            preferred_exchange=preferred_exchange,
+            analysis_type="trading_plan",
+            include_multi_timeframe=use_multi_tf
+        )
+
+        # Run in thread pool to avoid blocking
+        loop = asyncio.get_event_loop()
+
+        # Pre-fetch data using Bybit (consistent with screening)
+        from tg_bot.market_screener import MarketScreener
+        screener = MarketScreener()
+
+        df_test = screener.get_bybit_klines(symbol, timeframe, limit=100)
+
+        if df_test is None or len(df_test) < 50:
+            return None, f"Insufficient data for {symbol}. Symbol may not be available or has low liquidity."
+
+        plan = await loop.run_in_executor(None, generator.generate_trading_plan, request)
+
+        if plan:
+            # Store plan data in bot_data for callback handler to use
+            if context.bot_data is None:
+                context.bot_data = {}
+            if 'trading_plans' not in context.bot_data:
+                context.bot_data['trading_plans'] = {}
+
+            # Store plan with timestamp
+            import time
+            # Use callback_query message_id if available (for callback handlers), otherwise use message_id
+            if update and update.callback_query and update.callback_query.message:
+                message_id = update.callback_query.message.message_id
+            elif update and update.effective_message:
+                message_id = update.effective_message.message_id
+            else:
+                message_id = 0  # Fallback
+
+            plan_key = f"{message_id}_{chat_id}"
+            context.bot_data['trading_plans'][plan_key] = {
+                'plan': plan,
+                'timestamp': time.time()
+            }
+
+            return plan, None
+        else:
+            return None, f"Failed to generate trading plan for {symbol}"
+
+    except Exception as e:
+        logger.error(f"Error generating plan: {e}")
+        return None, str(e)
+
+
 @require_feature('price')
 async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /price command"""

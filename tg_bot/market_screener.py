@@ -84,39 +84,167 @@ class MarketScreener:
             logger.info(f"Using fallback list with {len(symbols)} symbols")
             return symbols
 
+    def get_bybit_klines(self, symbol: str, interval: str = '4h', limit: int = 100):
+        """
+        Get kline data from Bybit
+
+        Args:
+            symbol: Trading pair symbol (e.g., 'BTCUSDT')
+            interval: Timeframe ('1', '3', '5', '15', '30', '60', '120', '240', '360', '480', '720', 'D', 'W', 'M')
+            limit: Number of candles (max 1000)
+
+        Returns:
+            DataFrame with OHLCV data or None
+        """
+        try:
+            import requests
+            import pandas as pd
+
+            # Map timeframe to Bybit interval
+            interval_map = {
+                '1m': '1', '3m': '3', '5m': '5', '15m': '15', '30m': '30',
+                '1h': '60', '2h': '120', '4h': '240', '6h': '360', '12h': '480',
+                '1d': 'D', '1w': 'W', '1M': 'M'
+            }
+
+            bybit_interval = interval_map.get(interval, interval)
+
+            url = "https://api.bybit.com/v5/market/kline"
+            params = {
+                "category": "spot",
+                "symbol": symbol,
+                "interval": bybit_interval,
+                "limit": str(min(limit, 1000))
+            }
+
+            response = requests.get(url, params=params, timeout=10)
+            data = response.json()
+
+            if data.get('retCode') == 0 and 'result' in data:
+                klines = data['result']['list']
+
+                # Check number of columns in response
+                # Bybit spot kline returns: [timestamp, open, high, low, close, volume, turnover]
+                num_columns = len(klines[0]) if klines else 0
+
+                if num_columns == 7:
+                    # Standard Bybit format: timestamp, open, high, low, close, volume, turnover
+                    df = pd.DataFrame(klines, columns=[
+                        'timestamp', 'open', 'high', 'low', 'close', 'volume', 'turnover'
+                    ])
+                elif num_columns == 6:
+                    # Alternative format: timestamp, open, high, low, close, volume
+                    df = pd.DataFrame(klines, columns=[
+                        'timestamp', 'open', 'high', 'low', 'close', 'volume'
+                    ])
+                else:
+                    logger.warning(f"Unexpected Bybit kline format: {num_columns} columns")
+                    return None
+
+                # Convert types
+                df['timestamp'] = pd.to_datetime(df['timestamp'].astype(int), unit='ms')
+                for col in ['open', 'high', 'low', 'close', 'volume']:
+                    if col in df.columns:
+                        df[col] = df[col].astype(float)
+
+                # Sort by timestamp (newest first from Bybit, reverse it)
+                df = df.sort_values('timestamp').reset_index(drop=True)
+
+                # Keep only OHLCV
+                df = df[['timestamp', 'open', 'high', 'low', 'close', 'volume']]
+
+                return df
+            else:
+                logger.warning(f"Bybit API error for {symbol}: {data.get('retMsg', 'Unknown')}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error fetching Bybit klines for {symbol}: {e}")
+            return None
+
     async def screen_coin(
         self,
         symbol: str,
-        timeframe: str = '4h'
+        timeframe: str = '4h',
+        use_ai: bool = False,
+        min_volume_24h: float = 15_000_000  # $15M minimum 24h volume in USDT
     ) -> Optional[ScreenResult]:
-        """Quick screen a single coin"""
+        """
+        Quick screen a single coin with HYBRID approach
+
+        Args:
+            symbol: Coin symbol
+            timeframe: Timeframe for analysis
+            use_ai: If True, skip technical filter and go straight to AI
+            min_volume_24h: Minimum 24h volume in USDT (default: $15M)
+        """
         try:
-            # Get historical data using collector
-            df = self.collector.get_binance_klines_auto(
+            # Get historical data from BYBIT (not Binance)
+            df = self.get_bybit_klines(
                 symbol=symbol,
                 interval=timeframe,
                 limit=100
             )
 
             if df is None or len(df) < 50:
-                logger.warning(f"Insufficient data for {symbol}")
+                logger.debug(f"Insufficient data for {symbol}")
                 return None
 
             # Get latest price and volume
             current_price = float(df['close'].iloc[-1])
-            volume_24h = float(df['volume'].iloc[-1])
+            volume_24h_usdt = float(df['volume'].iloc[-1]) * current_price  # Convert to USDT value
+
+            # FILTER 1: Minimum 24h Volume (must be > $15M USDT)
+            if volume_24h_usdt < min_volume_24h:
+                logger.debug(f"{symbol} failed volume filter: ${volume_24h_usdt:,.0f} < ${min_volume_24h:,.0f}")
+                return None
 
             # Calculate 24h change
             change_24h = ((df['close'].iloc[-1] - df['close'].iloc[-24]) / df['close'].iloc[-24]) * 100
 
-            # Simple indicators dict (calculate basic values from df)
+            # TIER 1: Quick Technical Filter (Pure Logic - NO AI)
+            from tg_bot.technical_analysis import quick_technical_score
+
+            if not use_ai:
+                tech_result = quick_technical_score(df)
+
+                # If doesn't pass technical filter, skip AI analysis
+                if not tech_result['passed']:
+                    logger.debug(f"{symbol} failed technical filter (score: {tech_result['score']})")
+                    return None
+
+                # Passed filter - create preliminary result
+                result = ScreenResult(
+                    symbol=symbol,
+                    score=tech_result['score'] / 10.0,  # Convert to 0-10 scale
+                    signals=tech_result['signals'],
+                    current_price=current_price,
+                    volume_24h=volume_24h_usdt,  # Use USDT value
+                    change_24h=change_24h,
+                    trend=tech_result['trend'],
+                    analysis=f"Technical score: {tech_result['score']}/100. Pending AI analysis..."
+                )
+
+                logger.debug(f"{symbol} passed technical filter (score: {tech_result['score']})")
+                return result
+
+            # TIER 2: AI Analysis (Only for manually requested or high-potential coins)
+            # Prepare real indicators for AI
+            from tg_bot.technical_analysis import calculate_rsi, calculate_ema, calculate_macd, calculate_adx
+
+            rsi = calculate_rsi(df)
+            ema_20 = calculate_ema(df, 20).iloc[-1]
+            ema_50 = calculate_ema(df, 50).iloc[-1]
+            ema_200 = calculate_ema(df, 200).iloc[-1]
+            macd_line, signal_line, histogram = calculate_macd(df)
+
             indicators = {
-                'rsi': 50.0,  # Placeholder
-                'macd': 0.0,
-                'ema_20': float(df['close'].iloc[-1]),
-                'ema_50': float(df['close'].iloc[-1]),
-                'ema_200': float(df['close'].iloc[-1]),
-                'volume_24h': volume_24h
+                'rsi': rsi,
+                'macd': macd_line,
+                'ema_20': ema_20,
+                'ema_50': ema_50,
+                'ema_200': ema_200,
+                'volume_24h': volume_24h_usdt  # Use USDT value
             }
 
             # Quick AI screening
@@ -127,13 +255,13 @@ class MarketScreener:
                 current_price=current_price
             )
 
-            # Create result
+            # Create result from AI analysis
             result = ScreenResult(
                 symbol=symbol,
                 score=screening.get('score', 0.0),
                 signals=screening.get('signals', []),
                 current_price=current_price,
-                volume_24h=volume_24h,
+                volume_24h=volume_24h_usdt,  # Use USDT value
                 change_24h=change_24h,
                 trend=screening.get('trend', 'NEUTRAL'),
                 analysis=screening.get('analysis', '')
@@ -163,28 +291,32 @@ class MarketScreener:
 
             logger.info(f"Screening {len(symbols)} symbols on {timeframe} timeframe...")
 
-            # Screen coins concurrently (in batches)
+            # Screen coins sequentially to avoid rate limits and connection errors
             results = []
-            batch_size = 10  # Process 10 coins at a time
+            total_symbols = len(symbols)
 
-            for i in range(0, len(symbols), batch_size):
-                batch = symbols[i:i + batch_size]
+            for idx, symbol in enumerate(symbols):
+                try:
+                    # Screen coin individually
+                    result = await self.screen_coin(symbol, timeframe)
 
-                # Screen batch concurrently
-                tasks = [
-                    self.screen_coin(symbol, timeframe)
-                    for symbol in batch
-                ]
-                batch_results = await asyncio.gather(*tasks)
-
-                # Add successful results
-                for result in batch_results:
+                    # Add successful results
                     if result and result.score >= min_score:
                         results.append(result)
+                        logger.debug(f"{symbol} passed with score {result.score:.1f}")
+                    else:
+                        logger.debug(f"{symbol} failed or below threshold")
 
-                # Small delay to avoid rate limits
-                if i + batch_size < len(symbols):
-                    await asyncio.sleep(1)
+                    # Progress update every 50 coins
+                    if (idx + 1) % 50 == 0:
+                        logger.info(f"Progress: {idx + 1}/{total_symbols} symbols screened ({len(results)} passed)")
+
+                    # Small delay between requests to avoid rate limits
+                    await asyncio.sleep(0.1)
+
+                except Exception as e:
+                    logger.error(f"Error screening {symbol}: {e}")
+                    continue
 
             # Sort by score (descending)
             results.sort(key=lambda x: x.score, reverse=True)
@@ -299,23 +431,19 @@ class MarketScreener:
                     logger.info(f"Screening {len(primary_symbols)} symbols on {sec_tf} timeframe...")
 
                     sec_results = []
-                    batch_size = 10
 
-                    for i in range(0, len(primary_symbols), batch_size):
-                        batch = primary_symbols[i:i + batch_size]
-
-                        tasks = [
-                            self.screen_coin(symbol, sec_tf)
-                            for symbol in batch
-                        ]
-                        batch_results = await asyncio.gather(*tasks)
-
-                        for result in batch_results:
+                    for symbol in primary_symbols:
+                        try:
+                            result = await self.screen_coin(symbol, sec_tf)
                             if result and result.score >= min_score:
                                 sec_results.append(result)
 
-                        if i + batch_size < len(primary_symbols):
-                            await asyncio.sleep(0.5)
+                            # Small delay to avoid rate limits
+                            await asyncio.sleep(0.1)
+
+                        except Exception as e:
+                            logger.error(f"Error screening {symbol} on {sec_tf}: {e}")
+                            continue
 
                     # Sort by score
                     sec_results.sort(key=lambda x: x.score, reverse=True)

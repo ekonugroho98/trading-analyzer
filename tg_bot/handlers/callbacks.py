@@ -16,18 +16,36 @@ logger = logging.getLogger(__name__)
 
 # ============ HELPER FUNCTIONS ============
 
-async def screen_market(timeframe: str = '4h', limit: int = 20) -> list:
+# Simple in-memory cache for screening results
+_screening_cache = {
+    'results': None,
+    'timeframe': None,
+    'timestamp': None
+}
+
+
+async def screen_market(timeframe: str = '4h', limit: int = 20, use_cache: bool = True) -> list:
     """
     Screen market and return list of qualified coins
 
     Args:
         timeframe: Timeframe for analysis
         limit: Maximum number of coins to analyze
+        use_cache: If True, use cached results if available
 
     Returns:
         List of dicts with coin data and scores
     """
+    global _screening_cache
+
     try:
+        # Check cache first
+        if use_cache and _screening_cache['results'] is not None:
+            if _screening_cache['timeframe'] == timeframe:
+                # Cache is valid for this timeframe
+                logger.info(f"Using cached screening results for {timeframe}")
+                return _screening_cache['results']
+
         # Import here to avoid circular dependency
         from tg_bot.market_screener import MarketScreener
 
@@ -86,6 +104,13 @@ async def screen_market(timeframe: str = '4h', limit: int = 20) -> list:
                 continue
 
         logger.info(f"Screening complete: {screened_count}/{len(symbols)} symbols analyzed, {len(results)} qualified")
+
+        # Update cache
+        _screening_cache['results'] = results
+        _screening_cache['timeframe'] = timeframe
+        _screening_cache['timestamp'] = asyncio.get_event_loop().time()
+
+        logger.info(f"Screening results cached for {timeframe}")
 
         return results
 
@@ -182,12 +207,12 @@ async def timeframe_callback_handler(update: Update, context: ContextTypes.DEFAU
                 )
                 return
 
-            # Filter coins with score >= 50 (lowered from 60 to get more results)
-            qualified_coins = [r for r in results if isinstance(r, dict) and r.get('score', 0) >= 50]
+            # Filter coins with score >= 5.0 (hybrid: technical filter passed)
+            qualified_coins = [r for r in results if isinstance(r, dict) and r.get('score', 0) >= 5.0]
 
             if len(qualified_coins) == 0:
                 await query.edit_message_text(
-                    "❌ No coins meet minimum criteria (score ≥ 50).\n"
+                    "❌ No coins meet minimum criteria (score ≥ 5.0).\n"
                     "Try again later or use a different timeframe.",
                     parse_mode='Markdown'
                 )
@@ -334,18 +359,15 @@ async def pagination_callback_handler(update: Update, context: ContextTypes.DEFA
         timeframe = parts[1]
         page = int(parts[2])
 
-        # Get cached results or run new screening
-        # For now, we'll run new screening
-        # In production, you should cache results to avoid re-screening
-
+        # Use cached results (instant load!)
         await query.edit_message_text(
             f"⏳ Loading page {page + 1}...",
             parse_mode='Markdown'
         )
 
-        # Re-run screening and show requested page
-        results = await screen_market(timeframe=timeframe, limit=20)
-        qualified_coins = [r for r in results if r.get('score', 0) >= 50]
+        # Get cached results - should be instant!
+        results = await screen_market(timeframe=timeframe, limit=20, use_cache=True)
+        qualified_coins = [r for r in results if isinstance(r, dict) and r.get('score', 0) >= 5.0]
 
         if len(qualified_coins) > 10:
             selected_coins = random.sample(qualified_coins, 10)
@@ -370,14 +392,14 @@ async def rescreen_callback_handler(update: Update, context: ContextTypes.DEFAUL
     data = query.data
     timeframe = data.split('_')[1]  # Extract timeframe from "rescreen_4h"
 
-    # Run fresh screening
+    # Run fresh screening (bypass cache)
     await query.edit_message_text(
         f"⏳ Re-screening market ({timeframe})...",
         parse_mode='Markdown'
     )
 
-    results = await screen_market(timeframe=timeframe, limit=20)
-    qualified_coins = [r for r in results if r.get('score', 0) >= 60]
+    results = await screen_market(timeframe=timeframe, limit=20, use_cache=False)
+    qualified_coins = [r for r in results if isinstance(r, dict) and r.get('score', 0) >= 5.0]
 
     if len(qualified_coins) > 10:
         selected_coins = random.sample(qualified_coins, 10)
@@ -451,32 +473,57 @@ async def plan_from_screen_handler(update: Update, context: ContextTypes.DEFAULT
     symbol = parts[1]
     timeframe = parts[2]
 
+    chat_id = update.effective_chat.id
+
     await query.edit_message_text(
         f"⏳ Generating trading plan for {symbol}...\n"
         f"Timeframe: {timeframe.upper()}",
         parse_mode='Markdown'
     )
 
-    # Import here to avoid circular dependency
-    from tg_bot.handlers.trading import plan_command
-    from telegram import Update as UpdateClass
+    # Import helper function
+    from tg_bot.handlers.trading import generate_trading_plan_helper
+    from tg_bot.formatter import TelegramFormatter
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    import time
 
-    # Create a mock update object
-    # This is a workaround - in production, refactor to share logic
-    # For now, send a message directing user to use /plan command
-
-    await query.edit_message_text(
-        f"💡 *Trading Plan Request*\n\n"
-        f"Symbol: {symbol}\n"
-        f"Timeframe: {timeframe}\n\n"
-        f"Please use this command to generate the plan:\n"
-        f"`/plan {symbol} {timeframe}`\n\n"
-        f"This will open up more options like Single/Multi-TF mode.",
-        parse_mode='Markdown',
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("🔙 Back to Results", callback_data=f"page_{timeframe}_0")
-        ]])
+    # Generate trading plan directly (using single TF for stability)
+    plan, error = await generate_trading_plan_helper(
+        symbol=symbol,
+        timeframe=timeframe,
+        chat_id=chat_id,
+        context=context,
+        update=update,
+        use_multi_tf=False  # Use single TF for faster response from screening
     )
+
+    if plan:
+        # Create inline keyboard with "Add to Portfolio" button
+        # Use the callback query's message_id for callback_data
+        message_id = query.message.message_id
+        callback_data = f"add_portfolio_{plan.symbol}_{plan.trend}_{message_id}"
+
+        keyboard = [[InlineKeyboardButton("➕ Add to Portfolio", callback_data=callback_data)]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        # Send trading plan with inline keyboard
+        await query.edit_message_text(
+            TelegramFormatter.trading_plan(plan),
+            parse_mode='Markdown',
+            reply_markup=reply_markup
+        )
+    else:
+        # Show error with back button
+        await query.edit_message_text(
+            f"❌ *Failed to generate plan*\n\n"
+            f"Symbol: {symbol}\n"
+            f"Error: {error}\n\n"
+            f"Please try again or use /plan {symbol} {timeframe} command directly.",
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Back to Results", callback_data=f"page_{timeframe}_0")
+            ]])
+        )
 
 
 async def ta_from_screen_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
