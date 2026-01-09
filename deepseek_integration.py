@@ -598,18 +598,19 @@ class TradingPlanGenerator:
             try:
                 # Fetch 20 candles for additional timeframes (trend summary only)
                 # Use user's preferred exchange, fallback to other if unavailable
-                preferred_exchange = request.preferred_exchange.lower()
-                fallback_exchange = "binance" if preferred_exchange == "bybit" else "bybit"
+                # DEFAULT TO BINANCE first (more reliable) due to Bybit 403 errors
+                preferred_exchange = "binance"  # Hardcode to Binance for now
+                fallback_exchange = "bybit"
 
                 # Try preferred exchange first
-                if preferred_exchange == "bybit":
-                    df_tf = self.collector.get_bybit_klines(
+                if preferred_exchange == "binance":
+                    df_tf = self.collector.get_binance_klines_auto(
                         symbol=request.symbol,
                         interval=tf,
                         limit=20
                     )
-                else:  # binance
-                    df_tf = self.collector.get_binance_klines_auto(
+                else:  # bybit
+                    df_tf = self.collector.get_bybit_klines(
                         symbol=request.symbol,
                         interval=tf,
                         limit=20
@@ -617,14 +618,14 @@ class TradingPlanGenerator:
 
                 # Fallback to other exchange if preferred fails
                 if df_tf is None or len(df_tf) < 10:
-                    if fallback_exchange == "bybit":
-                        df_tf = self.collector.get_bybit_klines(
+                    if fallback_exchange == "binance":
+                        df_tf = self.collector.get_binance_klines_auto(
                             symbol=request.symbol,
                             interval=tf,
                             limit=20
                         )
-                    else:  # binance
-                        df_tf = self.collector.get_binance_klines_auto(
+                    else:  # bybit
+                        df_tf = self.collector.get_bybit_klines(
                             symbol=request.symbol,
                             interval=tf,
                             limit=20
@@ -656,37 +657,38 @@ class TradingPlanGenerator:
             logger.info(f"Generating trading plan for {request.symbol} ({request.timeframe})...")
 
             # Use user's preferred exchange, fallback to other if unavailable
-            preferred_exchange = request.preferred_exchange.lower()
-            fallback_exchange = "binance" if preferred_exchange == "bybit" else "bybit"
+            # DEFAULT TO BINANCE first (more reliable) due to Bybit 403 errors
+            preferred_exchange = "binance"  # Hardcode to Binance for now due to Bybit blocking
+            fallback_exchange = "bybit"
 
             # Try preferred exchange first
-            if preferred_exchange == "bybit":
-                df = self.collector.get_bybit_klines(
-                    symbol=request.symbol,
-                    interval=request.timeframe,
-                    limit=min(request.data_points, 200)
-                )
-            else:  # binance
+            if preferred_exchange == "binance":
                 df = self.collector.get_binance_klines_auto(
                     symbol=request.symbol,
                     interval=request.timeframe,
                     limit=request.data_points
                 )
+            else:  # bybit
+                df = self.collector.get_bybit_klines(
+                    symbol=request.symbol,
+                    interval=request.timeframe,
+                    limit=min(request.data_points, 200)
+                )
 
             # Fallback to other exchange if preferred fails
             if df is None or len(df) < 20:
                 logger.info(f"{preferred_exchange.capitalize()} data unavailable for {request.symbol}, trying {fallback_exchange.capitalize()}...")
-                if fallback_exchange == "bybit":
-                    df = self.collector.get_bybit_klines(
-                        symbol=request.symbol,
-                        interval=request.timeframe,
-                        limit=min(request.data_points, 200)
-                    )
-                else:  # binance
+                if fallback_exchange == "binance":
                     df = self.collector.get_binance_klines_auto(
                         symbol=request.symbol,
                         interval=request.timeframe,
                         limit=request.data_points
+                    )
+                else:  # bybit
+                    df = self.collector.get_bybit_klines(
+                        symbol=request.symbol,
+                        interval=request.timeframe,
+                        limit=min(request.data_points, 200)
                     )
 
             if df is None or len(df) < 20:

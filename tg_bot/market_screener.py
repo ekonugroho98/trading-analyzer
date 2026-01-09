@@ -86,7 +86,7 @@ class MarketScreener:
 
     def get_bybit_klines(self, symbol: str, interval: str = '4h', limit: int = 100):
         """
-        Get kline data from Bybit
+        Get kline data from Bybit with fallback to Binance
 
         Args:
             symbol: Trading pair symbol (e.g., 'BTCUSDT')
@@ -118,7 +118,13 @@ class MarketScreener:
             }
 
             response = requests.get(url, params=params, timeout=10)
-            data = response.json()
+
+            # Check if response is valid JSON (not HTML error)
+            try:
+                data = response.json()
+            except:
+                logger.warning(f"Bybit returned non-JSON response for {symbol}, trying Binance...")
+                return self._get_binance_klines_fallback(symbol, interval, limit)
 
             if data.get('retCode') == 0 and 'result' in data:
                 klines = data['result']['list']
@@ -139,7 +145,7 @@ class MarketScreener:
                     ])
                 else:
                     logger.warning(f"Unexpected Bybit kline format: {num_columns} columns")
-                    return None
+                    return self._get_binance_klines_fallback(symbol, interval, limit)
 
                 # Convert types
                 df['timestamp'] = pd.to_datetime(df['timestamp'].astype(int), unit='ms')
@@ -155,11 +161,34 @@ class MarketScreener:
 
                 return df
             else:
-                logger.warning(f"Bybit API error for {symbol}: {data.get('retMsg', 'Unknown')}")
-                return None
+                logger.warning(f"Bybit API error for {symbol}: {data.get('retMsg', 'Unknown')}, trying Binance...")
+                return self._get_binance_klines_fallback(symbol, interval, limit)
 
         except Exception as e:
-            logger.error(f"Error fetching Bybit klines for {symbol}: {e}")
+            logger.error(f"Error fetching Bybit klines for {symbol}: {e}, trying Binance...")
+            return self._get_binance_klines_fallback(symbol, interval, limit)
+
+    def _get_binance_klines_fallback(self, symbol: str, interval: str = '4h', limit: int = 100):
+        """
+        Get kline data from Binance as fallback
+
+        Args:
+            symbol: Trading pair symbol (e.g., 'BTCUSDT')
+            interval: Timeframe
+            limit: Number of candles
+
+        Returns:
+            DataFrame with OHLCV data or None
+        """
+        try:
+            from collector import CryptoDataCollector
+            collector = CryptoDataCollector()
+            df = collector.get_binance_klines_auto(symbol, interval, limit)
+            if df is not None:
+                logger.debug(f"Successfully fetched {symbol} from Binance (fallback)")
+            return df
+        except Exception as e:
+            logger.error(f"Error fetching Binance klines for {symbol}: {e}")
             return None
 
     async def screen_coin(
