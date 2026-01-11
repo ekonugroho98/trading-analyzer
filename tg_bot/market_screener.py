@@ -52,11 +52,11 @@ class MarketScreener:
     async def get_top_symbols(self, limit: int = 100) -> List[str]:
         """Get top USDT pairs by volume from Bybit"""
         try:
-            # Fetch all USDT pairs from Bybit
+            # Fetch all USDT pairs from Bybit Futures
             import requests
             url = "https://api.bybit.com/v5/market/tickers"
             params = {
-                "category": "spot"
+                "category": "linear"  # Use USDT Perpetual Futures, not Spot
             }
 
             response = requests.get(url, params=params, timeout=10)
@@ -111,7 +111,7 @@ class MarketScreener:
 
             url = "https://api.bybit.com/v5/market/kline"
             params = {
-                "category": "spot",
+                "category": "linear",  # Use USDT Perpetual Futures, not Spot
                 "symbol": symbol,
                 "interval": bybit_interval,
                 "limit": str(min(limit, 1000))
