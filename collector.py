@@ -307,19 +307,28 @@ class CryptoDataCollector:
         """
         # Apply rate limiting
         self._rate_limit(Exchange.BYBIT)
-        
+
+        # Map interval to Bybit format
+        # Bybit V5 API requires numeric intervals or specific letters
+        interval_map = {
+            '1m': '1', '3m': '3', '5m': '5', '15m': '15', '30m': '30',
+            '1h': '60', '2h': '120', '4h': '240', '6h': '360', '12h': '480',
+            '1d': 'D', '1w': 'W', '1M': 'M'
+        }
+        bybit_interval = interval_map.get(interval, interval)
+
         # Check cache first
         if use_cache:
             cached_data = self._load_from_cache("bybit", symbol, interval)
             if cached_data is not None and len(cached_data) >= limit:
                 return cached_data.tail(limit)
-        
+
         # Prepare request
         url = f"{Exchange.BYBIT.value.base_url}{Exchange.BYBIT.value.kline_endpoint}"
         params = {
             "category": category,
             "symbol": symbol,
-            "interval": interval,
+            "interval": bybit_interval,
             "limit": min(limit, Exchange.BYBIT.value.max_limit)
         }
         
