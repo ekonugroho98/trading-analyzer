@@ -328,22 +328,22 @@ class TradingPlanGenerator:
         Anda adalah CONSERVATIVE TRADING SPECIALIST dengan pendekatan RISK-ADVERSE.
         {scalping_section}
         ⚠️ FILTRI KUALITAS SETUP (WAJIB DICEK SEBELUM MEMBUAT PLAN):
-        JANGAN BUAT TRADING PLAN jika:
-        1. ADX < 20 (Market terlalu choppy/sideways) - KECUALI scalping mode aktif
-        2. RSI di antara 40-60 (No clear momentum) - KECUALI scalping mode aktif
-        3. Volume below 20 SMA (Low participation)
-        4. Price terlalu dekat dengan support/resistance (<0.5%) - KECUALI scalping mode aktif
-        5. Timeframe adalah 1h di luar market hours (00:00-08:00 UTC)
+        {"SCALPING MODE AKTIF - Quality filters dimodifikasi:" if scalping_info and scalping_info.get('is_scalpable') else "JANGAN BUAT TRADING PLAN jika:"}
+        {"1. IGNORE ADX filter (Scalping memanfaatkan sideways)" if scalping_info and scalping_info.get('is_scalpable') else "1. ADX < 20 (Market terlalu choppy/sideways)"}
+        {"2. IGNORE RSI filter (Netral OK untuk scalping)" if scalping_info and scalping_info.get('is_scalpable') else "2. RSI di antara 40-60 (No clear momentum)"}
+        {"3. Volume below 20 SMA (Low participation) - MASIH BERLAKU" if scalping_info and scalping_info.get('is_scalpable') else "3. Volume below 20 SMA (Low participation)"}
+        {"4. Price DEKAT support/resistance - JUST RIGHT untuk scalping!" if scalping_info and scalping_info.get('is_scalpable') else "4. Price terlalu dekat dengan support/resistance (<0.5%)"}
+        {"5. Timeframe adalah 1h di luar market hours (00:00-08:00 UTC) - MASIH BERLAKU" if scalping_info and scalping_info.get('is_scalpable') else "5. Timeframe adalah 1h di luar market hours (00:00-08:00 UTC)"}
 
-        Jika kondisi di atas terpenuhi, return HOLD signal.
+        {"Karena SCALPING MODE aktif, BUAT SCALP SIGNAL (SCALP_LONG/SCALP_SHORT), bukan HOLD!" if scalping_info and scalping_info.get('is_scalpable') else "Jika kondisi di atas terpenuhi, return HOLD signal."}
         {f'''
-        ⚠️ SCALPING MODE OVERRIDE:
-        Karena scalping mode aktif, abaikan filter #1, #2, dan #4.
-        Buat SCALPING SIGNAL (BUY/SELL) dengan:
-        - SMALL ENTRY: 0.5-1% dari current price
-        - TIGHT STOP: 0.3-0.5% dari entry
-        - QUICK TP: 0.5-1.5% dari entry
-        - Signal type: SCALP_LONG atau SCALP_SHORT
+        ⚠️ SCALPING MODE - MANDATORY RULES:
+        • SIGNAL TYPE: SCALP_LONG (buy near support) atau SCALP_SHORT (short near resistance)
+        • TARGET: 0.5-1.5% profit MAX, jangan lebih!
+        • STOP LOSS: 0.3-0.5% dari entry, sangat ketat!
+        • ENTRY: Dekat current price (max 0.5-1%)
+        • POSITION SIZE: Kecil (1-2% saja)
+        • JANGAN return HOLD ketika scalping mode aktif!
         ''' if scalping_info and scalping_info.get('is_scalpable') else ''}
 
         ⚠️ TIMEFRAME PRIORITY (PENTING):
