@@ -196,7 +196,8 @@ class MarketScreener:
         symbol: str,
         timeframe: str = '4h',
         use_ai: bool = False,
-        min_volume_24h: float = 15_000_000  # $15M minimum 24h volume in USDT
+        min_volume_24h: float = 15_000_000,  # $15M minimum 24h volume in USDT
+        preferred_exchange: str = 'bybit'
     ) -> Optional[ScreenResult]:
         """
         Quick screen a single coin with HYBRID approach
@@ -206,14 +207,42 @@ class MarketScreener:
             timeframe: Timeframe for analysis
             use_ai: If True, skip technical filter and go straight to AI
             min_volume_24h: Minimum 24h volume in USDT (default: $15M)
+            preferred_exchange: User's preferred exchange ('binance' or 'bybit')
         """
         try:
-            # Get historical data from BYBIT (not Binance)
-            df = self.get_bybit_klines(
-                symbol=symbol,
-                interval=timeframe,
-                limit=100
-            )
+            # Get historical data using user's preferred exchange with fallback
+            preferred_exchange = preferred_exchange.lower()
+            fallback_exchange = "binance" if preferred_exchange == "bybit" else "bybit"
+
+            # Try preferred exchange first
+            if preferred_exchange == "bybit":
+                df = self.get_bybit_klines(
+                    symbol=symbol,
+                    interval=timeframe,
+                    limit=100
+                )
+            else:  # binance
+                df = self._get_binance_klines_fallback(
+                    symbol=symbol,
+                    interval=timeframe,
+                    limit=100
+                )
+
+            # Fallback to other exchange if preferred fails
+            if df is None or len(df) < 50:
+                logger.info(f"{preferred_exchange.capitalize()} data unavailable for {symbol}, trying {fallback_exchange.capitalize()}...")
+                if fallback_exchange == "bybit":
+                    df = self.get_bybit_klines(
+                        symbol=symbol,
+                        interval=timeframe,
+                        limit=100
+                    )
+                else:  # binance
+                    df = self._get_binance_klines_fallback(
+                        symbol=symbol,
+                        interval=timeframe,
+                        limit=100
+                    )
 
             if df is None or len(df) < 50:
                 logger.debug(f"Insufficient data for {symbol}")

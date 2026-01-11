@@ -598,9 +598,8 @@ class TradingPlanGenerator:
             try:
                 # Fetch 20 candles for additional timeframes (trend summary only)
                 # Use user's preferred exchange, fallback to other if unavailable
-                # DEFAULT TO BINANCE first (more reliable) due to Bybit 403 errors
-                preferred_exchange = "binance"  # Hardcode to Binance for now
-                fallback_exchange = "bybit"
+                preferred_exchange = request.preferred_exchange.lower()
+                fallback_exchange = "binance" if preferred_exchange == "bybit" else "bybit"
 
                 # Try preferred exchange first
                 if preferred_exchange == "binance":
@@ -657,9 +656,8 @@ class TradingPlanGenerator:
             logger.info(f"Generating trading plan for {request.symbol} ({request.timeframe})...")
 
             # Use user's preferred exchange, fallback to other if unavailable
-            # DEFAULT TO BINANCE first (more reliable) due to Bybit 403 errors
-            preferred_exchange = "binance"  # Hardcode to Binance for now due to Bybit blocking
-            fallback_exchange = "bybit"
+            preferred_exchange = request.preferred_exchange.lower()
+            fallback_exchange = "binance" if preferred_exchange == "bybit" else "bybit"
 
             # Try preferred exchange first
             if preferred_exchange == "binance":

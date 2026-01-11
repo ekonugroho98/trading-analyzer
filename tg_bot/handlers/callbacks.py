@@ -24,7 +24,7 @@ _screening_cache = {
 }
 
 
-async def screen_market(timeframe: str = '4h', limit: int = 20, use_cache: bool = True) -> list:
+async def screen_market(timeframe: str = '4h', limit: int = 20, use_cache: bool = True, chat_id: int = None) -> list:
     """
     Screen market and return list of qualified coins
 
@@ -32,6 +32,7 @@ async def screen_market(timeframe: str = '4h', limit: int = 20, use_cache: bool 
         timeframe: Timeframe for analysis
         limit: Maximum number of coins to analyze
         use_cache: If True, use cached results if available
+        chat_id: User's chat ID for getting exchange preference
 
     Returns:
         List of dicts with coin data and scores
@@ -66,6 +67,11 @@ async def screen_market(timeframe: str = '4h', limit: int = 20, use_cache: bool 
 
         logger.info(f"Screening {len(symbols)} symbols from Bybit...")
 
+        # Get user's exchange preference
+        preferred_exchange = 'bybit'  # Default
+        if chat_id:
+            preferred_exchange = db.get_user_preference(chat_id, 'default_exchange', default='bybit')
+
         # Screen each symbol
         results = []
         screened_count = 0
@@ -75,7 +81,8 @@ async def screen_market(timeframe: str = '4h', limit: int = 20, use_cache: bool 
                 # Get single timeframe analysis
                 screen_result = await screener.screen_coin(
                     symbol=symbol,
-                    timeframe=timeframe
+                    timeframe=timeframe,
+                    preferred_exchange=preferred_exchange
                 )
 
                 if screen_result:
@@ -195,8 +202,9 @@ async def timeframe_callback_handler(update: Update, context: ContextTypes.DEFAU
 
         # Perform screening
         try:
+            chat_id = update.effective_chat.id if update.effective_chat else None
             # Get results from market screener
-            results = await screen_market(timeframe=timeframe, limit=20)
+            results = await screen_market(timeframe=timeframe, limit=20, chat_id=chat_id)
 
             # Validate results
             if not results or not isinstance(results, list):
@@ -366,7 +374,8 @@ async def pagination_callback_handler(update: Update, context: ContextTypes.DEFA
         )
 
         # Get cached results - should be instant!
-        results = await screen_market(timeframe=timeframe, limit=20, use_cache=True)
+        chat_id = update.effective_chat.id if update.effective_chat else None
+        results = await screen_market(timeframe=timeframe, limit=20, use_cache=True, chat_id=chat_id)
         qualified_coins = [r for r in results if isinstance(r, dict) and r.get('score', 0) >= 5.0]
 
         if len(qualified_coins) > 10:
@@ -398,7 +407,8 @@ async def rescreen_callback_handler(update: Update, context: ContextTypes.DEFAUL
         parse_mode='Markdown'
     )
 
-    results = await screen_market(timeframe=timeframe, limit=20, use_cache=False)
+    chat_id = update.effective_chat.id if update.effective_chat else None
+    results = await screen_market(timeframe=timeframe, limit=20, use_cache=False, chat_id=chat_id)
     qualified_coins = [r for r in results if isinstance(r, dict) and r.get('score', 0) >= 5.0]
 
     if len(qualified_coins) > 10:
