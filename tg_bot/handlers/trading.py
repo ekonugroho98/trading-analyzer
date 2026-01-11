@@ -315,11 +315,22 @@ async def plan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup = InlineKeyboardMarkup(keyboard)
 
                 # Send trading plan with inline keyboard
-                await update.message.reply_text(
-                    TelegramFormatter.trading_plan(plan),
-                    parse_mode='Markdown',
-                    reply_markup=reply_markup
-                )
+                try:
+                    await update.message.reply_text(
+                        TelegramFormatter.trading_plan(plan),
+                        parse_mode='Markdown',
+                        reply_markup=reply_markup
+                    )
+                except Exception as markdown_error:
+                    # If Markdown parsing fails, send without formatting
+                    logger.warning(f"Markdown parsing failed: {markdown_error}, sending plain text")
+                    # Strip Markdown formatting
+                    plain_text = TelegramFormatter.trading_plan(plan)
+                    plain_text = plain_text.replace('*', '').replace('`', '').replace('_', '').replace('~', '')
+                    await update.message.reply_text(
+                        plain_text,
+                        reply_markup=reply_markup
+                    )
             else:
                 await update.message.reply_text(
                     TelegramFormatter.error_message(f"Failed to generate trading plan for {symbol}")
@@ -327,7 +338,10 @@ async def plan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         except Exception as e:
             logger.error(f"Error generating plan: {e}")
-            await loading_msg.delete()
+            try:
+                await loading_msg.delete()
+            except:
+                pass  # Ignore if message already deleted
             await update.message.reply_text(
                 TelegramFormatter.error_message(f"Error: {str(e)}"),
                 parse_mode='Markdown'
