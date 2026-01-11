@@ -189,11 +189,16 @@ Contact @admin for support
     def trading_plan(plan: Any) -> str:
         """Format trading plan notification"""
         try:
+            # Check if scalping mode
+            is_scalping = 'SCALP' in plan.overall_signal.signal_type.upper()
+
             # Signal emoji
             signal_emoji = {
                 'BUY': TelegramFormatter.EMOJI['buy'],
                 'SELL': TelegramFormatter.EMOJI['sell'],
                 'HOLD': TelegramFormatter.EMOJI['hold'],
+                'SCALP_LONG': '🔥',  # Fire emoji for scalping
+                'SCALP_SHORT': '⚡',  # Lightning emoji for scalping
             }.get(plan.overall_signal.signal_type.upper(), TelegramFormatter.EMOJI['hold'])
 
             # Trend emoji
@@ -206,13 +211,25 @@ Contact @admin for support
             # Format current price
             formatted_current_price = TelegramFormatter._format_price(plan.current_price)
 
-            message = f"""{TelegramFormatter.EMOJI['robot']} *AI Trading Plan*
+            # Header - different for scalping
+            header = "🔥 *SCALPING MODE*" if is_scalping else f"{TelegramFormatter.EMOJI['robot']} *AI Trading Plan*"
+
+            message = f"""{header}
 {TelegramFormatter.EMOJI['chart']} *{plan.symbol}* - {plan.generated_at.strftime('%Y-%m-%d %H:%M')}
 
 *Current Price*: {formatted_current_price} {TelegramFormatter.EMOJI['money']}
 *Signal*: {plan.overall_signal.signal_type} {signal_emoji}
 *Confidence*: {plan.overall_signal.confidence:.1%}
 *Trend*: {plan.trend} {trend_emoji}"""
+
+            # Add scalping notice if applicable
+            if is_scalping:
+                message += f"""
+⚡ *Scalping Strategy Active*
+• Quick trades: 0.5-1.5% targets
+• Tight stops: 0.3-0.5%
+• Small position sizes (1-2%)
+• Exit quickly, don't be greedy!"""
 
             # Add expiration info if available
             if hasattr(plan, 'expires_at') and plan.expires_at:
