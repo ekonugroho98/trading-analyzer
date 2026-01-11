@@ -405,7 +405,7 @@ class TradingPlanGenerator:
                 "recommendation": "GOOD SETUP"
             }},
             "overall_signal": {{
-                "signal": "BUY/SELL/HOLD/WAIT",
+                "signal": "BUY/SELL/SCALP_LONG/SCALP_SHORT/HOLD/WAIT",
                 "confidence": 0.75,
                 "reason": "Alasan dengan konfirmasi indikator"
             }},
@@ -564,6 +564,50 @@ class TradingPlanGenerator:
             }},
             "notes": ["Wait for better setup", "Market tidak menarik untuk trade"]
         }}
+
+        📌 CONTOH 4: SCALPING MODE (SIDEWAYS WITH PRICE NEAR SUPPORT/RESISTANCE)
+        {{# USE THIS WHEN SCALPING MODE IS ACTIVATED #}}
+        {{
+            "trend": "SIDEWAYS",
+            "quality_score": {{"overall": 6.0, "confluence_count": 2}},
+            "overall_signal": {{
+                "signal": "SCALP_LONG",
+                "confidence": 0.55,
+                "reason": "Sideways market (ADX 22) but price near support ($90,800) - potential quick bounce scalp"
+            }},
+            "entries": [
+                {{"level": 90800.0000, "weight": 1.0, "distance": "0.3%"}}
+            ],
+            "take_profits": [
+                {{"level": 91200.0000, "reward_ratio": 1.5, "percentage_gain": 0.44}},
+                {{"level": 91450.0000, "reward_ratio": 2.5, "percentage_gain": 0.72}}
+            ],
+            "stop_loss": {{"level": 90450.0000, "percentage": "0.39%"}},
+            "risk_reward_ratio": 1.5,
+            "probability_of_success": 0.55,
+            "confluence_factors": [
+                "Price near support level",
+                "Sideways range trading",
+                "Quick bounce potential"
+            ],
+            "warnings": [
+                "SCALPING: Quick exit required (0.5-1.5% target)",
+                "Tight stop loss (0.3-0.5%)",
+                "Small position size (1-2%)",
+                "Don't be greedy - take profit quickly"
+            ]
+        }}
+
+        ⚠️ SCALPING MODE INSTRUCTIONS:
+        Jika SCALPING MODE aktif (terdeteksi di awal prompt):
+        - Gunakan signal: "SCALP_LONG" untuk buy near support
+        - Gunakan signal: "SCALP_SHORT" untuk short near resistance
+        - SMALL TARGETS: 0.5-1.5% profit per trade
+        - TIGHT STOPS: 0.3-0.5% from entry
+        - MAX 1-2 entries with small weights
+        - Quick TP1 at 0.5%, TP2 at 1-1.5%
+        - Position size: 1-2% MAX
+        - Add warning: "SCALPING MODE - Quick trades only"
 
         ⚠️ CRITICAL SHORT ENTRY RULES:
         - Untuk SELL/SHORT signal: Entry level harus DI ATAS current price (tunggu retrace ke resistance)
