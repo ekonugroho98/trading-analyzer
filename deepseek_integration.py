@@ -115,6 +115,7 @@ class AnalysisRequest:
     custom_prompt: str = None
     risk_profile: str = "moderate"  # conservative, moderate, aggressive
     preferred_exchange: str = "bybit"  # bybit or binance - user's default exchange
+    enable_scalping: bool = True  # Enable scalping mode for sideways/choppy markets
 
 # ============ TRADING PLAN GENERATOR ============
 class TradingPlanGenerator:
@@ -159,9 +160,80 @@ class TradingPlanGenerator:
         }
         return tf_map.get(timeframe, 0)
 
+    def _check_scalping_opportunity(self, df: pd.DataFrame, rsi: float, adx: float) -> Dict[str, Any]:
+        """
+        Check if market conditions are suitable for scalping
+
+        Returns dict with:
+        - is_scalpable: bool
+        - scalp_type: str ('support_bounce', 'resistance_reject', 'range_bound')
+        - nearest_level: float (nearest support or resistance)
+        - distance_pct: float (distance to nearest level in %)
+        - reason: str
+        """
+        current_price = df['close'].iloc[-1]
+        support_levels = self._calculate_support_levels(df)
+        resistance_levels = self._calculate_resistance_levels(df)
+
+        # Check if conditions are suitable for scalping
+        is_sideways = adx < 25  # Low trend strength
+        is_neutral_rsi = 40 <= rsi <= 60  # Neutral momentum
+        has_clear_levels = len(support_levels) > 0 and len(resistance_levels) > 0
+
+        if not (is_sideways and is_neutral_rsi and has_clear_levels):
+            return {
+                'is_scalpable': False,
+                'scalp_type': None,
+                'nearest_level': None,
+                'distance_pct': None,
+                'reason': 'Market conditions not suitable for scalping (requires: ADX<25, RSI 40-60, clear S/R levels)'
+            }
+
+        # Find nearest support/resistance level
+        nearest_support = min(support_levels, key=lambda x: abs(x - current_price))
+        nearest_resistance = min(resistance_levels, key=lambda x: abs(x - current_price))
+
+        distance_to_support = abs((current_price - nearest_support) / current_price * 100)
+        distance_to_resistance = abs((nearest_resistance - current_price) / current_price * 100)
+
+        # Determine scalping type
+        if distance_to_support < 0.5:  # Within 0.5% of support
+            return {
+                'is_scalpable': True,
+                'scalp_type': 'support_bounce',
+                'nearest_level': nearest_support,
+                'distance_pct': distance_to_support,
+                'reason': f'Price near support (${nearest_support:.6f}) - potential LONG scalp bounce'
+            }
+        elif distance_to_resistance < 0.5:  # Within 0.5% of resistance
+            return {
+                'is_scalpable': True,
+                'scalp_type': 'resistance_reject',
+                'nearest_level': nearest_resistance,
+                'distance_pct': distance_to_resistance,
+                'reason': f'Price near resistance (${nearest_resistance:.6f}) - potential SHORT scalp rejection'
+            }
+        elif distance_to_support < 1.0 or distance_to_resistance < 1.0:  # Within 1% of either level
+            return {
+                'is_scalpable': True,
+                'scalp_type': 'range_bound',
+                'nearest_level': nearest_support if distance_to_support < distance_to_resistance else nearest_resistance,
+                'distance_pct': min(distance_to_support, distance_to_resistance),
+                'reason': f'Range-bound between ${nearest_support:.6f} and ${nearest_resistance:.6f} - scalping opportunities'
+            }
+        else:
+            return {
+                'is_scalpable': False,
+                'scalp_type': None,
+                'nearest_level': None,
+                'distance_pct': None,
+                'reason': f'Price too far from levels (support: {distance_to_support:.2f}%, resistance: {distance_to_resistance:.2f}%)'
+            }
+
     # ============ TRADING PLAN PROMPT ============
     def _create_trading_plan_prompt(self, df: pd.DataFrame, request: AnalysisRequest,
-                                    mtf_data: List[TimeframeAnalysis] = None) -> str:
+                                    mtf_data: List[TimeframeAnalysis] = None,
+                                    scalping_info: Dict[str, Any] = None) -> str:
         """
         Create specialized prompt untuk trading plan
         """
@@ -177,6 +249,7 @@ class TradingPlanGenerator:
         # Indicators
         rsi = self._calculate_rsi(df)
         macd, signal = self._calculate_macd(df)
+        adx = self._calculate_adx(df)
 
         # Determine precision based on price
         if current_price >= 1000:
@@ -188,6 +261,37 @@ class TradingPlanGenerator:
         else:
             price_precision = 6
             price_format = f"${current_price:.6f}"
+
+        # Build scalping section if applicable
+        scalping_section = ""
+        if scalping_info and scalping_info.get('is_scalpable'):
+            scalp_type = scalping_info.get('scalp_type', '')
+            nearest_level = scalping_info.get('nearest_level', 0)
+            distance_pct = scalping_info.get('distance_pct', 0)
+            reason = scalping_info.get('reason', '')
+
+            scalping_section = f"""
+        🔥 SCALPING MODE ACTIVATED - SIDEWAYS MARKET OPPORTUNITY:
+        • Type: {scalp_type.upper().replace('_', ' ')}
+        • Nearest Level: ${nearest_level:.{price_precision}f}
+        • Distance: {distance_pct:.2f}%
+        • Reason: {reason}
+
+        SCALPING STRATEGY:
+        • SMALL TARGETS: 0.5-1.5% profit per trade
+        • TIGHT STOP LOSS: 0.3-0.5% from entry
+        • QUICK EXIT: Don't be greedy, take profit quickly
+        • SUPPORT BOUNCE: Buy near support, sell at resistance
+        • RESISTANCE REJECT: Short near resistance, cover at support
+        • RANGE TRADING: Buy low, sell high within the range
+
+        ⚠️ SCALPING RULES:
+        1. Position size: MAX 1-2% per scalp trade
+        2. Multiple small profits > one big loss
+        3. Exit immediately if price breaks the level
+        4. Don't scalp more than 3 times in same level
+        5. Best timeframes: 5m, 15m, 30m for quick entries/exits
+"""
 
         # Build multi-timeframe section
         mtf_section = ""
@@ -222,16 +326,25 @@ class TradingPlanGenerator:
 
         prompt = f"""
         Anda adalah CONSERVATIVE TRADING SPECIALIST dengan pendekatan RISK-ADVERSE.
-
+        {scalping_section}
         ⚠️ FILTRI KUALITAS SETUP (WAJIB DICEK SEBELUM MEMBUAT PLAN):
         JANGAN BUAT TRADING PLAN jika:
-        1. ADX < 20 (Market terlalu choppy/sideways)
-        2. RSI di antara 40-60 (No clear momentum)
+        1. ADX < 20 (Market terlalu choppy/sideways) - KECUALI scalping mode aktif
+        2. RSI di antara 40-60 (No clear momentum) - KECUALI scalping mode aktif
         3. Volume below 20 SMA (Low participation)
-        4. Price terlalu dekat dengan support/resistance (<0.5%)
+        4. Price terlalu dekat dengan support/resistance (<0.5%) - KECUALI scalping mode aktif
         5. Timeframe adalah 1h di luar market hours (00:00-08:00 UTC)
 
         Jika kondisi di atas terpenuhi, return HOLD signal.
+        {f'''
+        ⚠️ SCALPING MODE OVERRIDE:
+        Karena scalping mode aktif, abaikan filter #1, #2, dan #4.
+        Buat SCALPING SIGNAL (BUY/SELL) dengan:
+        - SMALL ENTRY: 0.5-1% dari current price
+        - TIGHT STOP: 0.3-0.5% dari entry
+        - QUICK TP: 0.5-1.5% dari entry
+        - Signal type: SCALP_LONG atau SCALP_SHORT
+        ''' if scalping_info and scalping_info.get('is_scalpable') else ''}
 
         ⚠️ TIMEFRAME PRIORITY (PENTING):
         • HIGHER TIMEFRAME (Primary) > LOWER TIMEFRAME (Secondary)
@@ -526,6 +639,39 @@ class TradingPlanGenerator:
         signal = macd.ewm(span=9, adjust=False).mean()
         return float(macd.iloc[-1]), float(signal.iloc[-1])
 
+    def _calculate_adx(self, df: pd.DataFrame, period: int = 14) -> float:
+        """Calculate ADX (Average Directional Index)"""
+        if len(df) < period * 2:
+            return 25.0  # Default moderate value
+
+        high = df['high']
+        low = df['low']
+        close = df['close']
+
+        # Calculate True Range
+        tr1 = high - low
+        tr2 = abs(high - close.shift())
+        tr3 = abs(low - close.shift())
+        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+
+        # Calculate +DM and -DM
+        plus_dm = high.diff()
+        minus_dm = -low.diff()
+
+        plus_dm[plus_dm < 0] = 0
+        minus_dm[minus_dm < 0] = 0
+
+        # Calculate smoothed TR, +DM, -DM
+        atr = tr.rolling(window=period).mean()
+        plus_di = 100 * (plus_dm.rolling(window=period).mean() / atr)
+        minus_di = 100 * (minus_dm.rolling(window=period).mean() / atr)
+
+        # Calculate DX and ADX
+        dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di)
+        adx = dx.rolling(window=period).mean()
+
+        return float(adx.iloc[-1]) if not pd.isna(adx.iloc[-1]) else 25.0
+
     def _analyze_timeframe(self, df: pd.DataFrame, timeframe: str) -> TimeframeAnalysis:
         """Quick trend analysis for a timeframe"""
         current_price = float(df['close'].iloc[-1])
@@ -692,12 +838,22 @@ class TradingPlanGenerator:
             if df is None or len(df) < 20:
                 raise ValueError(f"Insufficient data for {request.symbol}")
 
+            # Calculate indicators for scalping check
+            rsi = self._calculate_rsi(df)
+            adx = self._calculate_adx(df)
+
+            # Check for scalping opportunity if enabled
+            scalping_info = None
+            if request.enable_scalping:
+                scalping_info = self._check_scalping_opportunity(df, rsi, adx)
+                logger.info(f"Scalping check for {request.symbol}: {scalping_info}")
+
             # Get multi-timeframe data
             mtf_data = self._get_multi_timeframe_data(request)
             logger.info(f"Collected {len(mtf_data)} additional timeframe(s) for analysis")
 
-            # Create prompt
-            prompt = self._create_trading_plan_prompt(df, request, mtf_data)
+            # Create prompt with scalping info if applicable
+            prompt = self._create_trading_plan_prompt(df, request, mtf_data, scalping_info)
             
             # Prepare API request
             payload = {
